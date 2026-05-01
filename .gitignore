@@ -1,0 +1,24 @@
+# Java / Maven
+backend/target/
+*.class
+*.log
+
+# IntelliJ / VSCode
+.idea/
+.vscode/
+*.iml
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Env / secrets
+.env
+.env.*
+**/*secret*
+
+# Node / frontend (when created)
+node_modules/
+dist/
+.vite/
+

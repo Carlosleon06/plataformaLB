@@ -1,0 +1,70 @@
+
+plataforma de torneo 
+
+Usuarios
+- Jugador
+	- Nombre real
+	- Correo electronico
+	- ID del jugador numerico
+	- Nickname del jugador
+	- Stats
+	- Pais
+	- historial de equipos
+	- Juegos en los que tiene actividad
+	- Plataformas de stream, redes sociales
+	- Rango que tiene en cada juego
+	- Juego principal, en el que mas tiene actividad
+	- Economia: leon coins
+	- Estado del jugador: activo o castigado
+- Equipos
+	- Nombre del equipo
+	- Capitan del equipo
+	- Servidor donde es activo
+	- Roster de jugadores solo jugadores no quiero que esten separados en titulares y suplentes
+	- Historial de torneos
+	- Torneos ganados
+	- Logo
+	- coach el cual es un jugador pero se le asigna el rol de coach
+	- Plataformas de stream asociadas del equipo
+	- sponsors del equipo
+	- Estadisticas del equipo
+- Torneos
+	- Nombre de los organizadores
+	- Formato del evento
+	- Premio monetario dependiendo la posicion del equipo o jugador
+	- Juego en el que se realiza el torneo
+	- reglas
+	- Fechas de inscripcion
+	- Fecha de competencia
+	- Numero de equipos o jugadores participantes segun el torneo y el juego
+	- Requisitos para participar en el torneo, se verifica por el admin y se acepta al jugador
+	- Plataforma donde ver el torneo en stream
+- Motor de brackets
+	- Segun se ponga en el torneo, ya sea eliminacion simple, doble o round robin
+	- Se genera automaticamente al cerrarse inscripciones
+	- Los resultados de las partidas se ponen manualmente por el admin de manera rapida, solo resultado y el ganador, eleccion solamente entre los equipos que se enfrentaron
+- Estadisticas
+	- Varian dependiendo el juego
+	- Se pueden visualizar desde el perfil de cada jugador
+	- Un jugador puede tener varias dependiendo el juego pero se deben seccionar por juego
+	- Se tiene un ranking global por juego donde se muestra el top 10 jugadores con mejores estadisticas en ese juego
+	- Las estadisticas del equipo son el winrate y el KDA general de sus jugaddores
+	- Por el momento se contaran con los juegos de Valorant, fortnite y MLB the show 2026 (como es un solo jugador el que juega aqui osea es 1v1 cada jugador tiene stats de bateador y pitcher), donde se guardaran las estadisticas de cada uno
+		- Valorant: KDA, Winrate, porcentaje de headshot
+		- Fortnite: KD, winrate, Cantidad de victorias, veces en el top 10, Modo más jugador.
+		- MLB the show 2026: avg, home runs, innings lanzados, era, carreras permitidas
+- Apuestas
+	- Leon coins
+	- Las apuestas se realizan por partida
+	- formato twitch, El sistema de cuotas es **dinámico y parimutuel**. No hay una casa de apuestas; los ganadores se reparten el total de lo apostado por los perdedores, proporcionalmente a su apuesta inicial.
+	- El multiplicador de ganancia se calcula en tiempo real según el volumen de monedas en cada bando.
+		- **Favorito:** Equipo con más monedas apostadas: Multiplicador bajo.
+		- **Underdog:** Equipo con menos monedas apostadas: Multiplicador alto.
+	- Al iniciar la partida se abren las apuestas automaticamente, se quedan abiertas por 5 minutos y despues se cierran automaticamente
+	- Factor Multiplicador: Visualización en tiempo real de cuánto ganarías si apuestas por el favorito vs el underdog.
+	- bono de bienvenida de leon coins 5000
+	- **Automatización:**
+		- **Apertura:** Al iniciar la hora programada de la partida (Trigger por tiempo).
+		- **Cierre:** A los 5 minutos de haber iniciado (Lock automático).
+		- **Pago:** Al confirmar el ganador manualmente el admin, el sistema liquida los pagos.
+	
