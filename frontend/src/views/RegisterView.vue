@@ -7,14 +7,22 @@ const router = useRouter()
 const auth = useAuthStore()
 
 const username = ref('')
+const email = ref('')
 const password = ref('')
 const nickname = ref('')
+const fullName = ref('')
+const country = ref('')
+const showLegalNamePublic = ref(false)
 
 async function submit() {
   await auth.register({
     username: username.value,
+    email: email.value,
     password: password.value,
     nickname: nickname.value || undefined,
+    fullName: fullName.value.trim() || undefined,
+    country: country.value.trim() || undefined,
+    profileShowFullName: showLegalNamePublic.value,
   })
   await router.push('/')
 }
@@ -29,6 +37,17 @@ async function submit() {
 
     <form class="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-5" @submit.prevent="submit">
       <label class="block text-sm">
+        <span class="text-zinc-400">Correo</span>
+        <input
+          v-model="email"
+          type="email"
+          class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none ring-0 focus:border-zinc-600"
+          autocomplete="email"
+          required
+        />
+      </label>
+
+      <label class="block text-sm">
         <span class="text-zinc-400">Usuario</span>
         <input
           v-model="username"
@@ -36,6 +55,21 @@ async function submit() {
           autocomplete="username"
           required
         />
+      </label>
+
+      <label class="block text-sm">
+        <span class="text-zinc-400">Nombre legal (opcional)</span>
+        <input v-model="fullName" class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none ring-0 focus:border-zinc-600" />
+      </label>
+
+      <label class="flex items-center gap-2 text-sm text-zinc-300">
+        <input v-model="showLegalNamePublic" type="checkbox" class="accent-emerald-500" />
+        Permitir nombre legal público si lo completaste
+      </label>
+
+      <label class="block text-sm">
+        <span class="text-zinc-400">País / región (opcional)</span>
+        <input v-model="country" class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none ring-0 focus:border-zinc-600" />
       </label>
 
       <label class="block text-sm">

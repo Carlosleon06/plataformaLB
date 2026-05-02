@@ -1,6 +1,8 @@
 package com.leonbon.tournaments;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -28,8 +30,32 @@ public class Tournament {
 
     private String streamUrl;
 
+    /** Reglamento público del torneo (texto libre). */
+    private String rulesHtml;
+
+    /** Requisitos de elegibilidad; la verificación real es manual por admin. */
+    private String eligibilityNotes;
+
+    /** Descripción del premio / bolsa (texto libre). */
+    private String prizeNotes;
+
+    /** Null = sin tope explícito; admin no podrá sobrepasar al aprobar entradas. */
+    private Integer maxApprovedParticipants;
+
     /** Power-of-two bracket size after generation; null before bracket exists. */
     private Integer bracketSize;
+
+    /**
+     * Cuántos puestos clasificados reciben L-Coins al cerrarse el torneo (1 = sólo campeón, …). Null/0 =
+     * sin tabla monetaria configurada en creación (legacy).
+     */
+    private Integer prizeWinnerSlots;
+
+    /** Lista ordenada índice 0 = campeón, tamaño igual a {@link #prizeWinnerSlots}; null en torneos legacy. */
+    private List<Long> prizeLeonCoinsByPlacement;
+
+    /** Marca tiempo tras liquidar una vez la tabla de premios en L-Coins (si aplica). */
+    private Instant placementPrizeLedgerCompletedAt;
 
     private Instant createdAt = Instant.now();
     private Instant updatedAt = Instant.now();
@@ -122,12 +148,69 @@ public class Tournament {
         this.streamUrl = streamUrl;
     }
 
+    public String getRulesHtml() {
+        return rulesHtml;
+    }
+
+    public void setRulesHtml(String rulesHtml) {
+        this.rulesHtml = rulesHtml;
+    }
+
+    public String getEligibilityNotes() {
+        return eligibilityNotes;
+    }
+
+    public void setEligibilityNotes(String eligibilityNotes) {
+        this.eligibilityNotes = eligibilityNotes;
+    }
+
+    public String getPrizeNotes() {
+        return prizeNotes;
+    }
+
+    public void setPrizeNotes(String prizeNotes) {
+        this.prizeNotes = prizeNotes;
+    }
+
+    public Integer getMaxApprovedParticipants() {
+        return maxApprovedParticipants;
+    }
+
+    public void setMaxApprovedParticipants(Integer maxApprovedParticipants) {
+        this.maxApprovedParticipants = maxApprovedParticipants;
+    }
+
     public Integer getBracketSize() {
         return bracketSize;
     }
 
     public void setBracketSize(Integer bracketSize) {
         this.bracketSize = bracketSize;
+    }
+
+    public Integer getPrizeWinnerSlots() {
+        return prizeWinnerSlots;
+    }
+
+    public void setPrizeWinnerSlots(Integer prizeWinnerSlots) {
+        this.prizeWinnerSlots = prizeWinnerSlots;
+    }
+
+    public List<Long> getPrizeLeonCoinsByPlacement() {
+        return prizeLeonCoinsByPlacement;
+    }
+
+    public void setPrizeLeonCoinsByPlacement(List<Long> prizeLeonCoinsByPlacement) {
+        this.prizeLeonCoinsByPlacement =
+                prizeLeonCoinsByPlacement == null ? null : new ArrayList<>(prizeLeonCoinsByPlacement);
+    }
+
+    public Instant getPlacementPrizeLedgerCompletedAt() {
+        return placementPrizeLedgerCompletedAt;
+    }
+
+    public void setPlacementPrizeLedgerCompletedAt(Instant placementPrizeLedgerCompletedAt) {
+        this.placementPrizeLedgerCompletedAt = placementPrizeLedgerCompletedAt;
     }
 
     public Instant getCreatedAt() {

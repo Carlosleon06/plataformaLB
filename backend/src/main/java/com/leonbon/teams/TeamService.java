@@ -7,10 +7,16 @@ import com.leonbon.teams.dto.PendingTeamAdminRow;
 import com.leonbon.teams.dto.CreateTeamRequest;
 import com.leonbon.teams.dto.JoinRequestResponse;
 import com.leonbon.teams.dto.TeamCaptainViewResponse;
+import com.leonbon.teams.dto.PatchCaptainTeamPresenceRequest;
+import com.leonbon.teams.dto.TeamCompetitionSummaryResponse;
 import com.leonbon.teams.dto.TeamPublicResponse;
 import com.leonbon.auth.ConflictException;
+import com.leonbon.tournaments.TournamentEntry;
+import com.leonbon.tournaments.TournamentEntryRepository;
+import com.leonbon.tournaments.TournamentEntryStatus;
 import com.leonbon.users.User;
 import com.leonbon.users.UserRepository;
+import com.leonbon.notifications.NotificationService;
 import com.leonbon.users.UserRole;
 import com.leonbon.users.UserStatus;
 import com.leonbon.web.BadRequestException;
@@ -28,22 +34,34 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class TeamService {
+    private static final List<TournamentEntryStatus> TOURNAMENT_REGISTRATION_LOCK_STATUSES =
+            List.of(TournamentEntryStatus.PENDING, TournamentEntryStatus.APPROVED);
+
     private final TeamRepository teamRepository;
     private final TeamJoinRequestRepository joinRequestRepository;
     private final UserRepository userRepository;
+    private final TournamentEntryRepository tournamentEntryRepository;
+    private final NotificationService notificationService;
     private final String defaultLogoUrl;
     private final LocalLogoStorageService logoStorageService;
+    private final TeamCompetitionSummaryService teamCompetitionSummaryService;
 
     public TeamService(
             TeamRepository teamRepository,
             TeamJoinRequestRepository joinRequestRepository,
             UserRepository userRepository,
+            TournamentEntryRepository tournamentEntryRepository,
+            NotificationService notificationService,
+            TeamCompetitionSummaryService teamCompetitionSummaryService,
             @Value("${app.teams.defaultLogoUrl}") String defaultLogoUrl,
             LocalLogoStorageService logoStorageService
     ) {
         this.teamRepository = teamRepository;
         this.joinRequestRepository = joinRequestRepository;
         this.userRepository = userRepository;
+        this.tournamentEntryRepository = tournamentEntryRepository;
+        this.notificationService = notificationService;
+        this.teamCompetitionSummaryService = teamCompetitionSummaryService;
         this.defaultLogoUrl = defaultLogoUrl;
         this.logoStorageService = logoStorageService;
     }
@@ -68,6 +86,8 @@ public class TeamService {
         team.setCaptainUserId(actor.getId());
         team.setMemberUserIds(new ArrayList<>(List.of(actor.getId())));
         team.setCoachUserIds(new ArrayList<>());
+        team.setSponsorLines(sanitizeSponsorLines(req.getSponsorLines()));
+        team.setCanonicalStreamUrl(trimToNullCommercial(req.getCanonicalStreamUrl()));
         team.setCreatedAt(Instant.now());
         team.setUpdatedAt(Instant.now());
 
@@ -77,12 +97,30 @@ public class TeamService {
             throw new ConflictException("team name already exists");
         }
 
-        return toPublic(team);
+        return toPublic(team, null);
+    }
+
+    public TeamCaptainViewResponse patchCaptainCommercialFields(
+            JwtPrincipal principal, String teamId, PatchCaptainTeamPresenceRequest body) {
+        Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
+        assertCaptain(team, principal.userId());
+        if (team.getStatus() != TeamStatus.APPROVED && team.getStatus() != TeamStatus.PENDING) {
+            throw new ConflictException("team cannot be edited in this status");
+        }
+        if (body.getSponsorLines() != null) {
+            team.setSponsorLines(sanitizeSponsorLines(body.getSponsorLines()));
+        }
+        if (body.getCanonicalStreamUrl() != null) {
+            team.setCanonicalStreamUrl(trimToNullCommercial(body.getCanonicalStreamUrl()));
+        }
+        team.setUpdatedAt(Instant.now());
+        teamRepository.save(team);
+        return toCaptainView(teamRepository.findById(teamId).orElseThrow());
     }
 
     public List<TeamPublicResponse> listApprovedTeams() {
         return teamRepository.findTop20ByStatusOrderByCreatedAtDesc(TeamStatus.APPROVED).stream()
-                .map(this::toPublic)
+                .map(t -> toPublic(t, null))
                 .toList();
     }
 
@@ -133,7 +171,7 @@ public class TeamService {
             throw new BadRequestException("query too short");
         }
         return teamRepository.findTop50ByStatusAndNameContainingIgnoreCaseOrderByNameAsc(TeamStatus.APPROVED, q).stream()
-                .map(this::toPublic)
+                .map(t -> toPublic(t, null))
                 .toList();
     }
 
@@ -142,7 +180,8 @@ public class TeamService {
         if (team.getStatus() != TeamStatus.APPROVED) {
             throw new NotFoundException("team not found");
         }
-        return toPublic(team);
+        TeamCompetitionSummaryResponse comp = teamCompetitionSummaryService.summarizeApprovedTeam(team.getId());
+        return toPublic(team, comp);
     }
 
     public Object getTeamForViewer(JwtPrincipal principal, String teamId) {
@@ -155,7 +194,7 @@ public class TeamService {
             if (isMember) {
                 return toCaptainView(team);
             }
-            return toPublic(team);
+            return toPublic(team, teamCompetitionSummaryService.summarizeApprovedTeam(team.getId()));
         }
 
         // Non-approved teams are visible to roster members (captain is always a member)
@@ -246,6 +285,9 @@ public class TeamService {
             team.setMemberUserIds(new ArrayList<>(members));
             team.setUpdatedAt(now);
             teamRepository.save(team);
+            notificationService.publishTeamJoinAccepted(joiner.getId(), team.getId(), team.getName());
+        } else {
+            notificationService.publishTeamJoinRejected(req.getRequesterUserId(), team.getId(), team.getName());
         }
 
         User requester = userRepository.findById(req.getRequesterUserId()).orElseThrow();
@@ -402,6 +444,8 @@ public class TeamService {
             return disbandTeam(team, Instant.now());
         }
 
+        assertMemberNotListedInLockedTournamentRoster(team.getId(), actor.getId());
+
         LinkedHashSet<String> members = new LinkedHashSet<>(team.getMemberUserIds());
         if (!members.remove(actor.getId())) {
             throw new ConflictException("not a team member");
@@ -432,6 +476,8 @@ public class TeamService {
     }
 
     private TeamCaptainViewResponse disbandTeam(Team team, Instant now) {
+        assertTeamHasNoBlockingTournamentEntry(team.getId());
+
         team.setStatus(TeamStatus.DISBANDED);
         team.setUpdatedAt(now);
         teamRepository.save(team);
@@ -464,6 +510,30 @@ public class TeamService {
         }
     }
 
+    /** Equipo no puede deshacer roster (disolver) si está inscripto — aun pendiente — en algún torneo. */
+    private void assertTeamHasNoBlockingTournamentEntry(String teamId) {
+        List<TournamentEntry> rows = tournamentEntryRepository.findByTeamIdAndStatusIn(teamId, TOURNAMENT_REGISTRATION_LOCK_STATUSES);
+        if (!rows.isEmpty()) {
+            throw new ConflictException(
+                    "the team cannot be disbanded while it has a tournament registration pending or approved"
+            );
+        }
+    }
+
+    /** Jugadores listados para un torneo (roster declarado) no pueden abandonar hasta que liberen la inscripción. */
+    private void assertMemberNotListedInLockedTournamentRoster(String teamId, String memberUserId) {
+        List<TournamentEntry> rows = tournamentEntryRepository.findByTeamIdAndSelectedRosterUserIdsContainingAndStatusIn(
+                teamId,
+                memberUserId,
+                TOURNAMENT_REGISTRATION_LOCK_STATUSES
+        );
+        if (!rows.isEmpty()) {
+            throw new ConflictException(
+                    "you are listed as a roster player on a tournament entry (pending or approved) and cannot leave the team yet"
+            );
+        }
+    }
+
     private void assertTeamLogoMutable(Team team) {
         assertTeamJoinable(team);
         if (!(team.getStatus() == TeamStatus.PENDING || team.getStatus() == TeamStatus.APPROVED)) {
@@ -489,7 +559,9 @@ public class TeamService {
         return u;
     }
 
-    private TeamPublicResponse toPublic(Team team) {
+    private TeamPublicResponse toPublic(Team team, TeamCompetitionSummaryResponse summaryOrNull) {
+        List<String> sponsors =
+                team.getSponsorLines() == null ? List.of() : List.copyOf(team.getSponsorLines());
         return new TeamPublicResponse(
                 team.getId(),
                 team.getName(),
@@ -498,8 +570,10 @@ public class TeamService {
                 team.getLogoUrl(),
                 team.getStatus(),
                 team.getMemberUserIds() == null ? 0 : team.getMemberUserIds().size(),
-                team.getCreatedAt()
-        );
+                team.getCreatedAt(),
+                sponsors,
+                team.getCanonicalStreamUrl(),
+                summaryOrNull);
     }
 
     private TeamCaptainViewResponse toCaptainView(Team team) {
@@ -515,6 +589,12 @@ public class TeamService {
                 .map(id -> userRepository.findById(id).orElseThrow().getUsername())
                 .toList();
 
+        TeamCompetitionSummaryResponse comp =
+                team.getStatus() == TeamStatus.APPROVED ? teamCompetitionSummaryService.summarizeApprovedTeam(team.getId())
+                : null;
+        List<String> sponsors =
+                team.getSponsorLines() == null ? List.of() : List.copyOf(team.getSponsorLines());
+
         return new TeamCaptainViewResponse(
                 team.getId(),
                 team.getName(),
@@ -529,8 +609,28 @@ public class TeamService {
                 coachIds,
                 coachNames,
                 memberIds,
-                memberNames
-        );
+                memberNames,
+                sponsors,
+                team.getCanonicalStreamUrl(),
+                comp);
+    }
+
+    private static List<String> sanitizeSponsorLines(List<String> raw) {
+        if (raw == null) return List.of();
+        LinkedHashSet<String> uniq = new LinkedHashSet<>();
+        for (String s : raw) {
+            if (s == null) continue;
+            String t = s.trim();
+            if (!t.isEmpty()) uniq.add(t.length() > 200 ? t.substring(0, 200) : t);
+            if (uniq.size() >= 15) break;
+        }
+        return new ArrayList<>(uniq);
+    }
+
+    private static String trimToNullCommercial(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.length() > 512 ? t.substring(0, 512) : (t.isEmpty() ? null : t);
     }
 
     private JoinRequestResponse toJoinRequest(TeamJoinRequest r, String requesterUsername) {

@@ -2,6 +2,13 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiFetch } from '../lib/api'
 
+export type TeamCompetitionSummary = {
+  tournamentsWithApprovedEntry: number
+  bracketWins: number
+  bracketLosses: number
+  winRatePct: number | null
+}
+
 export type TeamPublic = {
   id: string
   name: string
@@ -11,6 +18,9 @@ export type TeamPublic = {
   status: string
   memberCount: number
   createdAt: string
+  sponsorLines: string[]
+  canonicalStreamUrl: string | null
+  competitionSummaryOrNull: TeamCompetitionSummary | null
 }
 
 export type TeamCaptainView = TeamPublic & {
@@ -52,6 +62,54 @@ export type JoinRequest = {
   updatedAt: string
 }
 
+export type TrophyAward = {
+  id: string
+  tournamentId: string
+  tournamentName: string
+  game: string
+  tournamentFormat: string
+  placement: number
+  badgeLabel: string
+  tournamentEntryId: string
+  entryType: string
+  teamId: string | null
+  playerId: string | null
+  awardedAt: string
+}
+
+export type TeamValorantAgg = {
+  playerRows: number
+  avgKda: number | null
+  kills: number
+  deaths: number
+  assists: number
+  avgHsPct: number | null
+}
+
+export type TeamFortniteAgg = {
+  playerRows: number
+  killsPerDeathOrNull: number | null
+  kills: number
+  deaths: number
+  avgPlacementOrNull: number | null
+}
+
+export type TeamMlbAggRow = {
+  playerRows: number
+  avgBattingAvgGame: number | null
+  homeRunsSum: number
+  avgInningsPitched: number | null
+  avgEraGame: number | null
+}
+
+export type TeamCollectiveBracketStats = {
+  approvedTournaments: number
+  attributedCompletedMatchesWithStats: number
+  valorant: TeamValorantAgg
+  fortnite: TeamFortniteAgg
+  mlb: TeamMlbAggRow
+}
+
 export const useTeamsStore = defineStore('teams', () => {
   const publicTeams = ref<TeamPublic[]>([])
   const busy = ref(false)
@@ -72,7 +130,13 @@ export const useTeamsStore = defineStore('teams', () => {
 
   async function createTeam(
     token: string,
-    payload: { name: string; tag: string; regionServer: string },
+    payload: {
+      name: string
+      tag: string
+      regionServer: string
+      sponsorLines?: string[]
+      canonicalStreamUrl?: string | null
+    },
   ): Promise<TeamPublic> {
     busy.value = true
     error.value = null
@@ -154,6 +218,33 @@ export const useTeamsStore = defineStore('teams', () => {
     return (await apiFetch(`/api/teams/${encodeURIComponent(teamId)}/disband`, { method: 'POST' }, token)) as TeamCaptainView
   }
 
+  async function patchCaptainCommercial(
+    token: string,
+    teamId: string,
+    body: { sponsorLines?: string[]; canonicalStreamUrl?: string | null },
+  ): Promise<TeamCaptainView> {
+    return (await apiFetch(
+      `/api/teams/${encodeURIComponent(teamId)}/captain/commercial-presence`,
+      { method: 'PATCH', body: JSON.stringify(body) },
+      token,
+    )) as TeamCaptainView
+  }
+
+  async function fetchCollectiveBracketStats(teamId: string): Promise<TeamCollectiveBracketStats> {
+    return (await apiFetch(
+      `/api/teams/public/${encodeURIComponent(teamId)}/collective-bracket-stats`,
+      { method: 'GET' },
+    )) as TeamCollectiveBracketStats
+  }
+
+  async function fetchTeamTrophies(teamId: string): Promise<TrophyAward[]> {
+    const data = await apiFetch(
+      `/api/teams/public/${encodeURIComponent(teamId)}/trophies`,
+      { method: 'GET' },
+    )
+    return Array.isArray(data) ? (data as TrophyAward[]) : []
+  }
+
   return {
     publicTeams,
     busy,
@@ -174,5 +265,8 @@ export const useTeamsStore = defineStore('teams', () => {
     resetTeamLogoCaptain,
     leaveTeam,
     disbandTeam,
+    patchCaptainCommercial,
+    fetchCollectiveBracketStats,
+    fetchTeamTrophies,
   }
 })

@@ -1,16 +1,21 @@
 package com.leonbon.teams;
 
 import com.leonbon.auth.JwtPrincipal;
+import com.leonbon.trophies.TrophyAwardIssuanceService;
+import com.leonbon.trophies.dto.TrophyAwardResponse;
+import com.leonbon.teams.dto.TeamCollectiveBracketStatsResponse;
 import com.leonbon.teams.dto.CreateTeamRequest;
 import com.leonbon.teams.dto.DelegateCaptainRequest;
 import com.leonbon.teams.dto.JoinRequestResponse;
 import com.leonbon.teams.dto.TeamCaptainViewResponse;
 import com.leonbon.teams.dto.TeamPublicResponse;
+import com.leonbon.teams.dto.PatchCaptainTeamPresenceRequest;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,9 +29,16 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/teams")
 public class TeamController {
     private final TeamService teamService;
+    private final TeamCollectiveBracketStatsService teamCollectiveBracketStatsService;
+    private final TrophyAwardIssuanceService trophyAwardIssuanceService;
 
-    public TeamController(TeamService teamService) {
+    public TeamController(
+            TeamService teamService,
+            TeamCollectiveBracketStatsService teamCollectiveBracketStatsService,
+            TrophyAwardIssuanceService trophyAwardIssuanceService) {
         this.teamService = teamService;
+        this.teamCollectiveBracketStatsService = teamCollectiveBracketStatsService;
+        this.trophyAwardIssuanceService = trophyAwardIssuanceService;
     }
 
     @GetMapping("/public")
@@ -42,6 +54,16 @@ public class TeamController {
     @GetMapping("/public/{teamId}")
     public TeamPublicResponse publicTeam(@PathVariable String teamId) {
         return teamService.getPublicTeam(teamId);
+    }
+
+    @GetMapping("/public/{teamId}/collective-bracket-stats")
+    public TeamCollectiveBracketStatsResponse collectiveBracketStats(@PathVariable String teamId) {
+        return teamCollectiveBracketStatsService.summarize(teamId);
+    }
+
+    @GetMapping("/public/{teamId}/trophies")
+    public List<TrophyAwardResponse> teamTrophies(@PathVariable String teamId) {
+        return TrophyAwardIssuanceService.mapResponses(trophyAwardIssuanceService.listForTeamMembersView(teamId));
     }
 
     @PostMapping
@@ -112,6 +134,16 @@ public class TeamController {
     public TeamCaptainViewResponse resetLogoCaptain(Authentication auth, @PathVariable String teamId) {
         JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
         return teamService.resetLogoCaptain(principal, teamId);
+    }
+
+    @PatchMapping("/{teamId}/captain/commercial-presence")
+    public TeamCaptainViewResponse patchCaptainCommercial(
+            Authentication auth,
+            @PathVariable String teamId,
+            @Valid @RequestBody PatchCaptainTeamPresenceRequest body
+    ) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.patchCaptainCommercialFields(principal, teamId, body);
     }
 
     @PostMapping("/{teamId}/leave")

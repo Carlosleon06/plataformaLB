@@ -6,6 +6,7 @@ public enum TransactionType {
     BET_PLACED,
     BET_PAYOUT,
     BET_REFUND,
+    TOURNAMENT_PLACEMENT_PRIZE,
     ADMIN_ADJUSTMENT
 }
 

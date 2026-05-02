@@ -5,6 +5,7 @@ import com.leonbon.tournaments.TournamentFormat;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
+import java.util.List;
 
 public class CreateTournamentRequest {
     @NotBlank
@@ -32,6 +33,23 @@ public class CreateTournamentRequest {
     private Instant competitionEndAt;
 
     private String streamUrl;
+
+    private String rulesHtml;
+
+    private String eligibilityNotes;
+
+    private String prizeNotes;
+
+    /** Opcional: máximo de entradas aprobadas (equipo/jugador individual cuenta como 1). */
+    private Integer maxApprovedParticipants;
+
+    /**
+     * Cuántos puestos reciben premio en L-Coins (0 = ninguno). Si N es positivo, {@link #prizeLeonCoinsByPlacement} debe tener N
+     * importes (campeón índice 0, etc.).
+     */
+    private Integer prizeWinnerSlots;
+
+    private List<Long> prizeLeonCoinsByPlacement;
 
     public String getName() {
         return name;
@@ -103,5 +121,53 @@ public class CreateTournamentRequest {
 
     public void setStreamUrl(String streamUrl) {
         this.streamUrl = streamUrl;
+    }
+
+    public String getRulesHtml() {
+        return rulesHtml;
+    }
+
+    public void setRulesHtml(String rulesHtml) {
+        this.rulesHtml = rulesHtml;
+    }
+
+    public String getEligibilityNotes() {
+        return eligibilityNotes;
+    }
+
+    public void setEligibilityNotes(String eligibilityNotes) {
+        this.eligibilityNotes = eligibilityNotes;
+    }
+
+    public String getPrizeNotes() {
+        return prizeNotes;
+    }
+
+    public void setPrizeNotes(String prizeNotes) {
+        this.prizeNotes = prizeNotes;
+    }
+
+    public Integer getMaxApprovedParticipants() {
+        return maxApprovedParticipants;
+    }
+
+    public void setMaxApprovedParticipants(Integer maxApprovedParticipants) {
+        this.maxApprovedParticipants = maxApprovedParticipants;
+    }
+
+    public Integer getPrizeWinnerSlots() {
+        return prizeWinnerSlots;
+    }
+
+    public void setPrizeWinnerSlots(Integer prizeWinnerSlots) {
+        this.prizeWinnerSlots = prizeWinnerSlots;
+    }
+
+    public List<Long> getPrizeLeonCoinsByPlacement() {
+        return prizeLeonCoinsByPlacement;
+    }
+
+    public void setPrizeLeonCoinsByPlacement(List<Long> prizeLeonCoinsByPlacement) {
+        this.prizeLeonCoinsByPlacement = prizeLeonCoinsByPlacement;
     }
 }

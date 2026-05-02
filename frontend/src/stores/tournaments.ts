@@ -14,7 +14,16 @@ export type Tournament = {
   competitionStartAt: string
   competitionEndAt: string
   streamUrl: string | null
+  rulesHtml?: string | null
+  eligibilityNotes?: string | null
+  prizeNotes?: string | null
+  /** Cuántos puestos clasificados reciben L-Coins al cerrar torneo (0 o null = tabla no usada). */
+  prizeWinnerSlots?: number | null
+  prizeLeonCoinsByPlacement?: number[] | null
+  maxApprovedParticipants?: number | null
   bracketSize?: number | null
+  /** Si viene del backend: ya se ejecutó liquidación monetaria por puestos. */
+  placementPrizeLedgerCompletedAt?: string | null
   createdAt: string
 }
 
@@ -29,6 +38,13 @@ export type BracketMatch = {
   entryIdB: string | null
   winnerEntryId: string | null
   status: string
+  scheduledStartAt?: string | null
+  bettingWindowMinutes?: number
+  bettingClosesAt?: string | null
+  totalStakeEntryA?: number
+  totalStakeEntryB?: number
+  impliedReturnPerCoinOnA?: number | null
+  impliedReturnPerCoinOnB?: number | null
 }
 
 export type TournamentEntry = {
@@ -47,6 +63,19 @@ export type TournamentEntry = {
   playerUsername?: string | null
 }
 
+/** Stats por partido (MVP 2); solo uno de los arrays está poblado según game. */
+export type BracketMatchStats = {
+  matchId: string
+  tournamentId: string
+  game: string
+  revision: number
+  recordedByAdminUserId: string
+  recordedAt: string
+  valorantPlayers: Array<Record<string, unknown>>
+  fortnitePlayers: Array<Record<string, unknown>>
+  mlbPlayers: Array<Record<string, unknown>>
+}
+
 export type CreateTournamentPayload = {
   name: string
   organizers: string
@@ -57,6 +86,13 @@ export type CreateTournamentPayload = {
   competitionStartAt: string
   competitionEndAt: string
   streamUrl?: string | null
+  rulesHtml?: string | null
+  eligibilityNotes?: string | null
+  prizeNotes?: string | null
+  maxApprovedParticipants?: number | null
+  /** 0 sin premios monetarios declarados por puesto. */
+  prizeWinnerSlots?: number | null
+  prizeLeonCoinsByPlacement?: number[] | null
 }
 
 /** Human-readable row for tournament entry lists (team name/tag or player username). */
@@ -125,12 +161,32 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     return (await apiFetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/matches`, { method: 'GET' }, null)) as BracketMatch[]
   }
 
+  async function getMatchStats(tournamentId: string, matchId: string): Promise<BracketMatchStats> {
+    return (await apiFetch(
+      `/api/tournaments/${encodeURIComponent(tournamentId)}/matches/${encodeURIComponent(matchId)}/stats`,
+      { method: 'GET' },
+      null,
+    )) as BracketMatchStats
+  }
+
   async function closeRegistrationAdmin(token: string, tournamentId: string): Promise<Tournament> {
     return (await apiFetch(
       `/api/admin/tournaments/${encodeURIComponent(tournamentId)}/registration/close`,
       { method: 'POST' },
       token,
     )) as Tournament
+  }
+
+  async function reopenRegistrationAdmin(token: string, tournamentId: string): Promise<Tournament> {
+    return (await apiFetch(
+      `/api/admin/tournaments/${encodeURIComponent(tournamentId)}/registration/reopen`,
+      { method: 'POST' },
+      token,
+    )) as Tournament
+  }
+
+  async function deleteTournamentAdmin(token: string, tournamentId: string): Promise<void> {
+    await apiFetch(`/api/admin/tournaments/${encodeURIComponent(tournamentId)}`, { method: 'DELETE' }, token)
   }
 
   async function generateBracketAdmin(token: string, tournamentId: string): Promise<Tournament> {
@@ -147,6 +203,36 @@ export const useTournamentsStore = defineStore('tournaments', () => {
       { method: 'POST', body: JSON.stringify({ winnerEntryId }) },
       token,
     )) as BracketMatch
+  }
+
+  async function openBettingWindowAdmin(token: string, tournamentId: string, matchId: string): Promise<BracketMatch> {
+    return (await apiFetch(
+      `/api/admin/tournaments/${encodeURIComponent(tournamentId)}/matches/${encodeURIComponent(matchId)}/betting/open`,
+      { method: 'POST' },
+      token,
+    )) as BracketMatch
+  }
+
+  async function closeBettingWindowAdmin(token: string, tournamentId: string, matchId: string): Promise<BracketMatch> {
+    return (await apiFetch(
+      `/api/admin/tournaments/${encodeURIComponent(tournamentId)}/matches/${encodeURIComponent(matchId)}/betting/close`,
+      { method: 'POST' },
+      token,
+    )) as BracketMatch
+  }
+
+  /** 200 con JSON o 204 sin cuerpo (borrando stats vacíos). */
+  async function upsertMatchStatsAdmin(
+    token: string,
+    tournamentId: string,
+    matchId: string,
+    body: Record<string, unknown>,
+  ): Promise<BracketMatchStats | null> {
+    return (await apiFetch(
+      `/api/admin/tournaments/${encodeURIComponent(tournamentId)}/matches/${encodeURIComponent(matchId)}/stats`,
+      { method: 'PUT', body: JSON.stringify(body) },
+      token,
+    )) as BracketMatchStats | null
   }
 
   async function registerTeam(
@@ -225,9 +311,15 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     getTournament,
     listEntries,
     listMatches,
+    getMatchStats,
     closeRegistrationAdmin,
+    reopenRegistrationAdmin,
+    deleteTournamentAdmin,
     generateBracketAdmin,
     setMatchWinnerAdmin,
+    openBettingWindowAdmin,
+    closeBettingWindowAdmin,
+    upsertMatchStatsAdmin,
     registerTeam,
     registerMlbSelf,
     approveEntryAdmin,

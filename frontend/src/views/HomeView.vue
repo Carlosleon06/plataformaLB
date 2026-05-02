@@ -20,6 +20,9 @@ const auth = useAuthStore()
         <RouterLink class="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-zinc-100 hover:bg-zinc-900" to="/teams">
           Ver equipos
         </RouterLink>
+        <RouterLink class="rounded-md border border-emerald-900/45 bg-emerald-950/30 px-3 py-2 text-emerald-50 hover:bg-emerald-950/45" to="/leaderboards">
+          Rankings internos
+        </RouterLink>
         <RouterLink
           v-if="auth.me?.role === 'ADMIN'"
           class="rounded-md border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-amber-100 hover:bg-amber-950/50"
@@ -56,9 +59,17 @@ const auth = useAuthStore()
       <section class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
         <h2 class="text-sm font-semibold text-zinc-200">Perfil</h2>
         <dl class="mt-4 space-y-2 text-sm">
+          <div v-if="auth.me?.leonPlayerNumber != null" class="flex justify-between gap-4">
+            <dt class="text-zinc-500">Jugador #</dt>
+            <dd class="font-mono text-zinc-100">{{ auth.me.leonPlayerNumber }}</dd>
+          </div>
           <div class="flex justify-between gap-4">
             <dt class="text-zinc-500">Usuario</dt>
             <dd class="font-mono text-zinc-100">{{ auth.me?.username }}</dd>
+          </div>
+          <div class="flex justify-between gap-4">
+            <dt class="text-zinc-500">Email</dt>
+            <dd class="max-w-[12rem] truncate font-mono text-xs text-zinc-100">{{ auth.me?.email ?? '—' }}</dd>
           </div>
           <div class="flex justify-between gap-4">
             <dt class="text-zinc-500">Nickname</dt>

@@ -20,4 +20,12 @@ public interface TournamentEntryRepository extends MongoRepository<TournamentEnt
 
     @Query("{ 'selectedRosterUserIds': ?0, 'status': { $in: ?1 } }")
     List<TournamentEntry> findByRosterUserIdAndStatusIn(String rosterUserId, List<TournamentEntryStatus> statuses);
+
+    long countByTournamentIdAndStatus(String tournamentId, TournamentEntryStatus status);
+
+    /** Any team entry that lists this user in the roster for the tournament (locks leaving the team). */
+    List<TournamentEntry> findByTeamIdAndSelectedRosterUserIdsContainingAndStatusIn(
+            String teamId, String rosterUserId, List<TournamentEntryStatus> statuses);
+
+    void deleteByTournamentId(String tournamentId);
 }

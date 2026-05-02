@@ -2,6 +2,7 @@ package com.leonbon.teams.dto;
 
 import com.leonbon.teams.TeamStatus;
 import java.time.Instant;
+import java.util.List;
 
 public record TeamPublicResponse(
         String id,
@@ -11,5 +12,8 @@ public record TeamPublicResponse(
         String logoUrl,
         TeamStatus status,
         int memberCount,
-        Instant createdAt
+        Instant createdAt,
+        List<String> sponsorLines,
+        String canonicalStreamUrl,
+        TeamCompetitionSummaryResponse competitionSummaryOrNull
 ) {}

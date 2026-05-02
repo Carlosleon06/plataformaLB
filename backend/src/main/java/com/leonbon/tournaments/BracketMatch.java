@@ -27,6 +27,12 @@ public class BracketMatch {
 
     private BracketMatchStatus status = BracketMatchStatus.WAITING;
 
+    /** Sugerencia de orden de agenda (stagger); no define si las apuestas están abiertas. */
+    private Instant scheduledStartAt;
+
+    /** Cierre de ventana manual de parimutuel; null si está cerrada. El admin la abre; expira tras N minutos. */
+    private Instant bettingWindowClosesAt;
+
     /** Sub-bracket; null in legacy DB rows means {@link BracketPool#WB}. */
     private BracketPool bracketPool;
 
@@ -95,6 +101,22 @@ public class BracketMatch {
 
     public void setStatus(BracketMatchStatus status) {
         this.status = status;
+    }
+
+    public Instant getScheduledStartAt() {
+        return scheduledStartAt;
+    }
+
+    public void setScheduledStartAt(Instant scheduledStartAt) {
+        this.scheduledStartAt = scheduledStartAt;
+    }
+
+    public Instant getBettingWindowClosesAt() {
+        return bettingWindowClosesAt;
+    }
+
+    public void setBettingWindowClosesAt(Instant bettingWindowClosesAt) {
+        this.bettingWindowClosesAt = bettingWindowClosesAt;
     }
 
     public BracketPool getBracketPool() {

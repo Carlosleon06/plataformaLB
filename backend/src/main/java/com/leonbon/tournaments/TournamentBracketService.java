@@ -2,6 +2,9 @@ package com.leonbon.tournaments;
 
 import com.leonbon.auth.ConflictException;
 import com.leonbon.auth.JwtPrincipal;
+import com.leonbon.bets.BettingConfig;
+import com.leonbon.bets.BetService;
+import com.leonbon.trophies.TrophyAwardIssuanceService;
 import com.leonbon.tournaments.dto.BracketMatchResponse;
 import com.leonbon.tournaments.dto.TournamentResponse;
 import com.leonbon.users.User;
@@ -10,6 +13,7 @@ import com.leonbon.users.UserRole;
 import com.leonbon.web.BadRequestException;
 import com.leonbon.web.ForbiddenException;
 import com.leonbon.web.NotFoundException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,17 +27,26 @@ public class TournamentBracketService {
     private final TournamentRepository tournamentRepository;
     private final TournamentEntryRepository tournamentEntryRepository;
     private final BracketMatchRepository bracketMatchRepository;
+    private final BetService betService;
+    private final BettingConfig bettingConfig;
+    private final TrophyAwardIssuanceService trophyAwardIssuanceService;
 
     public TournamentBracketService(
             UserRepository userRepository,
             TournamentRepository tournamentRepository,
             TournamentEntryRepository tournamentEntryRepository,
-            BracketMatchRepository bracketMatchRepository
+            BracketMatchRepository bracketMatchRepository,
+            BetService betService,
+            BettingConfig bettingConfig,
+            TrophyAwardIssuanceService trophyAwardIssuanceService
     ) {
         this.userRepository = userRepository;
         this.tournamentRepository = tournamentRepository;
         this.tournamentEntryRepository = tournamentEntryRepository;
         this.bracketMatchRepository = bracketMatchRepository;
+        this.betService = betService;
+        this.bettingConfig = bettingConfig;
+        this.trophyAwardIssuanceService = trophyAwardIssuanceService;
     }
 
     public TournamentResponse closeRegistrationAsAdmin(JwtPrincipal admin, String tournamentId) {
@@ -47,6 +60,43 @@ public class TournamentBracketService {
         t.setUpdatedAt(now);
         tournamentRepository.save(t);
         return toTournamentResponse(tournamentRepository.findById(tournamentId).orElseThrow());
+    }
+
+    /**
+     * Undo an accidental close-registration: back to {@link TournamentLifecycleStatus#REGISTRATION_OPEN} only when no
+     * bracket has been generated yet (no matches, no bracketSize).
+     */
+    public TournamentResponse reopenRegistrationAsAdmin(JwtPrincipal admin, String tournamentId) {
+        assertDbAdmin(admin);
+        Tournament t = tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
+        if (t.getLifecycleStatus() != TournamentLifecycleStatus.REGISTRATION_CLOSED) {
+            throw new ConflictException("solo se puede reabrir inscripciones si el estado es REGISTRATION_CLOSED");
+        }
+        if (bracketMatchRepository.countByTournamentId(tournamentId) > 0) {
+            throw new ConflictException("no se puede reabrir: ya existen partidas de calendario");
+        }
+        if (t.getBracketSize() != null && t.getBracketSize() > 0) {
+            throw new ConflictException("no se puede reabrir: el torneo ya tiene bracket generado (bracketSize)");
+        }
+        Instant now = Instant.now();
+        t.setLifecycleStatus(TournamentLifecycleStatus.REGISTRATION_OPEN);
+        t.setUpdatedAt(now);
+        tournamentRepository.save(t);
+        return toTournamentResponse(tournamentRepository.findById(tournamentId).orElseThrow());
+    }
+
+    /**
+     * Removes a tournament and its entries when there is no bracket yet (no matches). Intended for admin mistakes
+     * (e.g. empty tournament after closing registration).
+     */
+    public void deleteTournamentAsAdmin(JwtPrincipal admin, String tournamentId) {
+        assertDbAdmin(admin);
+        tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
+        if (bracketMatchRepository.countByTournamentId(tournamentId) > 0) {
+            throw new ConflictException("no se puede eliminar: hay partidas de calendario");
+        }
+        tournamentEntryRepository.deleteByTournamentId(tournamentId);
+        tournamentRepository.deleteById(tournamentId);
     }
 
     public TournamentResponse generateBracketAsAdmin(JwtPrincipal admin, String tournamentId) {
@@ -98,7 +148,7 @@ public class TournamentBracketService {
             String b = padded.get(2 * i + 1);
             bm.setEntryIdA(a);
             bm.setEntryIdB(b);
-            applyByeOrReady(bm);
+            applyByeOrReady(bm, now);
             bm.setCreatedAt(now);
             bm.setUpdatedAt(now);
             bracketMatchRepository.save(bm);
@@ -149,6 +199,7 @@ public class TournamentBracketService {
                 bm.setEntryIdA(approved.get(i).getId());
                 bm.setEntryIdB(approved.get(j).getId());
                 bm.setStatus(BracketMatchStatus.READY);
+                stampBettingSchedule(bm, now);
                 bm.setCreatedAt(now);
                 bm.setUpdatedAt(now);
                 bracketMatchRepository.save(bm);
@@ -188,7 +239,7 @@ public class TournamentBracketService {
             bm.setIndexInRound(i);
             bm.setEntryIdA(padded.get(2 * i));
             bm.setEntryIdB(padded.get(2 * i + 1));
-            applyByeOrReady(bm);
+            applyByeOrReady(bm, now);
             bm.setCreatedAt(now);
             bm.setUpdatedAt(now);
             bracketMatchRepository.save(bm);
@@ -292,6 +343,41 @@ public class TournamentBracketService {
                 .toList();
     }
 
+    public BracketMatchResponse openBettingWindowAsAdmin(JwtPrincipal admin, String tournamentId, String matchId) {
+        assertDbAdmin(admin);
+        BracketMatch match = bracketMatchRepository.findById(matchId).orElseThrow(() -> new NotFoundException("match not found"));
+        if (!Objects.equals(match.getTournamentId(), tournamentId)) {
+            throw new NotFoundException("match not found");
+        }
+        if (match.getStatus() != BracketMatchStatus.READY) {
+            throw new ConflictException("betting window only for READY matches");
+        }
+        if (match.getEntryIdA() == null || match.getEntryIdB() == null || match.getWinnerEntryId() != null) {
+            throw new ConflictException("match is not open for betting");
+        }
+        Instant now = Instant.now();
+        Instant closes = now.plus(Duration.ofMinutes(bettingConfig.windowMinutes()));
+        match.setBettingWindowClosesAt(closes);
+        match.setUpdatedAt(now);
+        bracketMatchRepository.save(match);
+        betService.publishStakeBoard(match);
+        return toMatchResponse(bracketMatchRepository.findById(matchId).orElseThrow());
+    }
+
+    public BracketMatchResponse closeBettingWindowAsAdmin(JwtPrincipal admin, String tournamentId, String matchId) {
+        assertDbAdmin(admin);
+        BracketMatch match = bracketMatchRepository.findById(matchId).orElseThrow(() -> new NotFoundException("match not found"));
+        if (!Objects.equals(match.getTournamentId(), tournamentId)) {
+            throw new NotFoundException("match not found");
+        }
+        Instant now = Instant.now();
+        match.setBettingWindowClosesAt(null);
+        match.setUpdatedAt(now);
+        bracketMatchRepository.save(match);
+        betService.publishStakeBoard(match);
+        return toMatchResponse(bracketMatchRepository.findById(matchId).orElseThrow());
+    }
+
     public BracketMatchResponse setMatchWinnerAsAdmin(JwtPrincipal admin, String tournamentId, String matchId, String winnerEntryId) {
         assertDbAdmin(admin);
         Tournament tournament = tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
@@ -316,10 +402,12 @@ public class TournamentBracketService {
         Instant now = Instant.now();
         String loserId = Objects.equals(winnerEntryId, match.getEntryIdA()) ? match.getEntryIdB() : match.getEntryIdA();
 
+        match.setBettingWindowClosesAt(null);
         match.setWinnerEntryId(winnerEntryId);
         match.setStatus(BracketMatchStatus.COMPLETE);
         match.setUpdatedAt(now);
         bracketMatchRepository.save(match);
+        betService.resolveMatchBets(match, now);
 
         if (format == TournamentFormat.ROUND_ROBIN) {
             if (allRoundRobinMatchesComplete(tournamentId)) {
@@ -518,9 +606,19 @@ public class TournamentBracketService {
             m.setUpdatedAt(now);
         } else if (m.getEntryIdA() != null && m.getEntryIdB() != null) {
             m.setStatus(BracketMatchStatus.READY);
+            stampBettingSchedule(m, now);
         } else {
             m.setStatus(BracketMatchStatus.WAITING);
         }
+    }
+
+    private void stampBettingSchedule(BracketMatch m, Instant now) {
+        if (m.getScheduledStartAt() != null || m.getStatus() != BracketMatchStatus.READY) {
+            return;
+        }
+        Tournament t = tournamentRepository.findById(m.getTournamentId()).orElseThrow();
+        long idx = MatchBettingSchedule.slotIndexFor(m.getBracketPool(), m.getRound(), m.getIndexInRound());
+        m.setScheduledStartAt(MatchBettingSchedule.scheduledStartForSlot(t, idx, bettingConfig.slotStaggerMinutes(), now));
     }
 
     private void maybeAdvanceWinnersParent(String tournamentId, BracketMatch child, int totalWbRounds, TournamentFormat format) {
@@ -557,6 +655,7 @@ public class TournamentBracketService {
             parent.setStatus(BracketMatchStatus.COMPLETE);
         } else if (parent.getEntryIdA() != null && parent.getEntryIdB() != null) {
             parent.setStatus(BracketMatchStatus.READY);
+            stampBettingSchedule(parent, now);
         } else {
             parent.setStatus(BracketMatchStatus.WAITING);
         }
@@ -584,7 +683,7 @@ public class TournamentBracketService {
         return o;
     }
 
-    private static void applyByeOrReady(BracketMatch bm) {
+    private void applyByeOrReady(BracketMatch bm, Instant now) {
         String a = bm.getEntryIdA();
         String b = bm.getEntryIdB();
         if (a == null && b == null) {
@@ -598,6 +697,7 @@ public class TournamentBracketService {
             bm.setStatus(BracketMatchStatus.COMPLETE);
         } else {
             bm.setStatus(BracketMatchStatus.READY);
+            stampBettingSchedule(bm, now);
         }
     }
 
@@ -610,6 +710,7 @@ public class TournamentBracketService {
     }
 
     private BracketMatchResponse toMatchResponse(BracketMatch m) {
+        BetService.MatchStakeBoard board = betService.stakeBoardForMatch(m);
         return new BracketMatchResponse(
                 m.getId(),
                 m.getTournamentId(),
@@ -619,7 +720,14 @@ public class TournamentBracketService {
                 m.getEntryIdA(),
                 m.getEntryIdB(),
                 m.getWinnerEntryId(),
-                m.getStatus()
+                m.getStatus(),
+                m.getScheduledStartAt(),
+                board.bettingWindowMinutes(),
+                board.bettingClosesAt(),
+                board.stakeOnA(),
+                board.stakeOnB(),
+                board.impliedReturnPerCoinOnA(),
+                board.impliedReturnPerCoinOnB()
         );
     }
 
@@ -636,7 +744,14 @@ public class TournamentBracketService {
                 t.getCompetitionStartAt(),
                 t.getCompetitionEndAt(),
                 t.getStreamUrl(),
+                t.getRulesHtml(),
+                t.getEligibilityNotes(),
+                t.getPrizeNotes(),
+                t.getPrizeWinnerSlots(),
+                t.getPrizeLeonCoinsByPlacement() == null ? null : List.copyOf(t.getPrizeLeonCoinsByPlacement()),
+                t.getMaxApprovedParticipants(),
                 t.getBracketSize(),
+                t.getPlacementPrizeLedgerCompletedAt(),
                 t.getCreatedAt()
         );
     }
@@ -647,6 +762,7 @@ public class TournamentBracketService {
             t.setLifecycleStatus(TournamentLifecycleStatus.COMPLETED);
             t.setUpdatedAt(now);
             tournamentRepository.save(t);
+            trophyAwardIssuanceService.issueIfNeeded(tournamentId);
         }
     }
 }

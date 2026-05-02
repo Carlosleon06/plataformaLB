@@ -29,6 +29,14 @@ public class Team {
 
     private List<String> memberUserIds = new ArrayList<>();
 
+    /** Patrocinio / partners (texto libre corto por línea). */
+
+    private List<String> sponsorLines = new ArrayList<>();
+
+    /** Enlace destacado oficial del equipo (streaming u otra plataforma). */
+
+    private String canonicalStreamUrl;
+
     private Instant createdAt = Instant.now();
     private Instant updatedAt = Instant.now();
 
@@ -102,6 +110,22 @@ public class Team {
 
     public void setMemberUserIds(List<String> memberUserIds) {
         this.memberUserIds = memberUserIds;
+    }
+
+    public List<String> getSponsorLines() {
+        return sponsorLines;
+    }
+
+    public void setSponsorLines(List<String> sponsorLines) {
+        this.sponsorLines = sponsorLines == null ? new ArrayList<>() : new ArrayList<>(sponsorLines);
+    }
+
+    public String getCanonicalStreamUrl() {
+        return canonicalStreamUrl;
+    }
+
+    public void setCanonicalStreamUrl(String canonicalStreamUrl) {
+        this.canonicalStreamUrl = canonicalStreamUrl;
     }
 
     public Instant getCreatedAt() {

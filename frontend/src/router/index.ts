@@ -10,6 +10,9 @@ import TournamentDetailView from '../views/TournamentDetailView.vue'
 import AdminTeamsPendingView from '../views/AdminTeamsPendingView.vue'
 import AdminTournamentCreateView from '../views/AdminTournamentCreateView.vue'
 import AdminTournamentsListView from '../views/AdminTournamentsListView.vue'
+import ProfileEditView from '../views/ProfileEditView.vue'
+import UserProfilePublicView from '../views/UserProfilePublicView.vue'
+import LeaderboardsView from '../views/LeaderboardsView.vue'
 
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -22,6 +25,9 @@ export const router = createRouter({
     { path: '/teams', name: 'teams', component: TeamsBrowseView },
     { path: '/teams/create', name: 'teams-create', component: TeamCreateView },
     { path: '/teams/:teamId', name: 'team-detail', component: TeamDetailView },
+    { path: '/profile/edit', name: 'profile-edit', component: ProfileEditView },
+    { path: '/leaderboards', name: 'leaderboards', component: LeaderboardsView },
+    { path: '/users/:userId', name: 'user-public-profile', component: UserProfilePublicView },
     { path: '/admin/teams', name: 'admin-teams-pending', component: AdminTeamsPendingView },
     { path: '/admin/tournaments', name: 'admin-tournaments', component: AdminTournamentsListView },
     { path: '/admin/tournaments/create', name: 'admin-tournaments-create', component: AdminTournamentCreateView },

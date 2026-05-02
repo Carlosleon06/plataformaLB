@@ -5,13 +5,44 @@ import { apiFetch } from '../lib/api'
 /** Same key as in `apiFetch` / localStorage; use for fallbacks when reading the session token. */
 export const LEONBON_TOKEN_STORAGE_KEY = 'leonbon.token'
 
-type MeResponse = {
+export type PlayerSocialLinks = {
+  twitchUrl: string | null
+  youtubeUrl: string | null
+  xUrl: string | null
+  instagramUrl: string | null
+  discord: string | null
+}
+
+export type MeResponse = {
   id: string
+  leonPlayerNumber: number | null
   username: string
+  email: string | null
   nickname: string | null
+  fullName: string | null
+  profileShowFullName: boolean
+  country: string | null
+  socialLinks: PlayerSocialLinks
+  preferredGame: string | null
+  rankLabelsByGame: Record<string, string>
   status: string
   role: string
   leonCoinsBalance: number
+}
+
+export type PatchMyProfilePayload = {
+  nickname?: string | null
+  email?: string | null
+  fullName?: string | null
+  profileShowFullName?: boolean | null
+  country?: string | null
+  twitchProfileUrl?: string | null
+  youtubeChannelUrl?: string | null
+  xProfileUrl?: string | null
+  instagramProfileUrl?: string | null
+  discordHandle?: string | null
+  preferredGame?: string | null
+  rankLabelsByGame?: Record<string, string> | null
 }
 
 type TransactionResponse = {
@@ -40,7 +71,15 @@ export const useAuthStore = defineStore('auth', () => {
     else localStorage.removeItem(TOKEN_KEY)
   }
 
-  async function register(payload: { username: string; password: string; nickname?: string }) {
+  async function register(payload: {
+    username: string
+    email: string
+    password: string
+    nickname?: string | null
+    fullName?: string | null
+    country?: string | null
+    profileShowFullName?: boolean | null
+  }) {
     busy.value = true
     error.value = null
     try {
@@ -117,6 +156,21 @@ export const useAuthStore = defineStore('auth', () => {
     await refreshTransactions(25)
   }
 
+  async function patchProfile(payload: PatchMyProfilePayload) {
+    if (!token.value) return
+    busy.value = true
+    error.value = null
+    try {
+      await apiFetch('/api/me/profile', { method: 'PATCH', body: JSON.stringify(payload) }, token.value)
+      await refreshMe()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Unknown error'
+      throw e
+    } finally {
+      busy.value = false
+    }
+  }
+
   async function bootstrap() {
     if (!token.value) return
     try {
@@ -140,5 +194,6 @@ export const useAuthStore = defineStore('auth', () => {
     refreshAll,
     bootstrap,
     dailyClaim,
+    patchProfile,
   }
 })

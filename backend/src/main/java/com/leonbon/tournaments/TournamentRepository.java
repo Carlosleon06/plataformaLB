@@ -14,4 +14,6 @@ public interface TournamentRepository extends MongoRepository<Tournament, String
     List<Tournament> findTop200ByOrderByUpdatedAtDesc();
 
     Optional<Tournament> findFirstByNameIgnoreCaseOrderByCreatedAtDesc(String name);
+
+    List<Tournament> findByGame(GameTitle game);
 }

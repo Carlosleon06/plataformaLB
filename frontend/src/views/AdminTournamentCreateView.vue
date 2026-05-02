@@ -18,11 +18,51 @@ const registrationEndLocal = ref('')
 const competitionStartLocal = ref('')
 const competitionEndLocal = ref('')
 const streamUrl = ref('')
+const rulesHtml = ref('')
+const eligibilityNotes = ref('')
+const prizeNotes = ref('')
+/** Vacío = sin tope; solo números enteros válidos si se rellena */
+const maxApprovedParticipantsRaw = ref('')
+/** Cuántos puestos clasificados reciben LC al cerrarse el torneo (0 = no configurar tabla). */
+
+const prizeWinnerSlotsCount = ref(0)
+
+const prizeLeonDraft = ref<string[]>([])
 
 const localError = ref<string | null>(null)
 
 function resolveBearer(): string | null {
   return coerceBearerToken(auth.token) ?? (typeof localStorage !== 'undefined' ? localStorage.getItem(LEONBON_TOKEN_STORAGE_KEY) : null)
+}
+
+function setPrizeRow(ix: number, val: string) {
+  ensurePrizeDraftLength()
+  const copy = [...prizeLeonDraft.value]
+  copy[ix - 1] = val
+  prizeLeonDraft.value = copy
+}
+
+function onPrizeInput(ix: number, e: Event) {
+  const t = e.target as HTMLInputElement | null
+  if (!t) return
+  setPrizeRow(ix, t.value)
+}
+
+function ensurePrizeDraftLength() {
+  let n = Math.floor(Number(prizeWinnerSlotsCount.value))
+  if (!Number.isFinite(n) || n < 0) n = 0
+  if (n > 32) n = 32
+  prizeWinnerSlotsCount.value = n
+  const cur = [...prizeLeonDraft.value]
+  while (cur.length < n) cur.push('')
+  prizeLeonDraft.value = cur.slice(0, n)
+}
+
+function placementLabel(rank: number): string {
+  if (rank === 1) return '1.er lugar — L-Coins'
+  if (rank === 2) return '2.º lugar — L-Coins'
+  if (rank === 3) return '3.er lugar — L-Coins'
+  return `${rank}.º lugar — L-Coins`
 }
 
 function toIso(localDatetime: string): string {
@@ -70,6 +110,34 @@ async function submit() {
     return
   }
 
+  const capStr = maxApprovedParticipantsRaw.value.trim()
+  let maxApprovedParticipants: number | null = null
+  if (capStr.length > 0) {
+    const cap = Number.parseInt(capStr, 10)
+    if (!Number.isFinite(cap) || cap < 1) {
+      localError.value = 'Cupo máximo: introduce un entero ≥ 1 o déjalo vacío.'
+      return
+    }
+    maxApprovedParticipants = cap
+  }
+
+  ensurePrizeDraftLength()
+  const prizeSlots = prizeWinnerSlotsCount.value
+  const prizeAmounts: number[] = []
+  for (let i = 0; i < prizeSlots; i++) {
+    const raw = (prizeLeonDraft.value[i] ?? '').trim()
+    if (!raw.length) {
+      prizeAmounts.push(0)
+      continue
+    }
+    const amt = Number.parseInt(raw, 10)
+    if (!Number.isFinite(amt) || amt < 0 || !Number.isInteger(amt)) {
+      localError.value = `${placementLabel(i + 1)}: introduce un entero ≥ 0 o déjalo en 0.`
+      return
+    }
+    prizeAmounts.push(amt)
+  }
+
   const body: CreateTournamentPayload = {
     name: n,
     organizers: o,
@@ -80,6 +148,12 @@ async function submit() {
     competitionStartAt,
     competitionEndAt,
     streamUrl: streamUrl.value.trim() || null,
+    rulesHtml: rulesHtml.value.trim() || null,
+    eligibilityNotes: eligibilityNotes.value.trim() || null,
+    prizeNotes: prizeNotes.value.trim() || null,
+    maxApprovedParticipants,
+    prizeWinnerSlots: prizeSlots,
+    prizeLeonCoinsByPlacement: prizeAmounts.length > 0 ? prizeAmounts : [],
   }
 
   try {
@@ -197,6 +271,80 @@ async function submit() {
           type="url"
           placeholder="https://…"
           class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+        />
+      </div>
+
+      <div>
+        <label class="block text-xs text-zinc-500">Reglas (texto, opcional)</label>
+        <textarea
+          v-model="rulesHtml"
+          rows="3"
+          class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          placeholder="Reglamento / formato de partidas…"
+        />
+      </div>
+      <div>
+        <label class="block text-xs text-zinc-500">Elegibilidad / requisitos (referencia, opcional)</label>
+        <textarea
+          v-model="eligibilityNotes"
+          rows="2"
+          class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          placeholder="Rangos, región, antecedentes… (la verificación es manual por admin)"
+        />
+      </div>
+      <div>
+        <label class="block text-xs text-zinc-500">Premios (texto, opcional)</label>
+        <textarea
+          v-model="prizeNotes"
+          rows="2"
+          class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+          placeholder="Notas sobre trofeos, sponsors, otros premios físicos…"
+        />
+      </div>
+
+      <div class="rounded-lg border border-amber-900/30 bg-amber-950/10 p-4">
+        <label class="block text-xs font-medium text-amber-200/95">Distribución L-Coins por posición</label>
+        <p class="mt-1 text-[11px] text-zinc-500">
+          Al cerrarse el torneo se acreditan L-Coins por colocaciones 1.er, 2.º … según estos importes. En equipo, el pool
+          de cada puesto se divide en partes iguales entre el roster de esa entrada. Configurá solo tantos puestos como el
+          formato vaya a emitir (ej. liga sólo garantiza hasta 2 puestos con el esquema actual).
+        </p>
+        <div class="mt-3 max-w-xs">
+          <label class="block text-xs text-zinc-500">¿Cuántos puestos con premio?</label>
+          <input
+            v-model.number="prizeWinnerSlotsCount"
+            type="number"
+            min="0"
+            max="32"
+            step="1"
+            inputmode="numeric"
+            class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-mono text-zinc-100"
+            @blur="ensurePrizeDraftLength()"
+          />
+        </div>
+        <div v-if="prizeWinnerSlotsCount > 0" class="mt-4 space-y-3">
+          <div v-for="ix in prizeWinnerSlotsCount" :key="ix" class="max-w-xs">
+            <label class="block text-xs text-zinc-500">{{ placementLabel(ix) }}</label>
+            <input
+              :value="prizeLeonDraft[ix - 1] ?? ''"
+              type="text"
+              inputmode="numeric"
+              placeholder="0"
+              class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-mono text-zinc-100"
+              @input="onPrizeInput(ix, $event)"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs text-zinc-500">Cupo máx. entradas aprobadas (opcional)</label>
+        <input
+          v-model="maxApprovedParticipantsRaw"
+          type="text"
+          inputmode="numeric"
+          placeholder="Vacío = sin límite"
+          class="mt-1 w-full max-w-xs rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
         />
       </div>
 

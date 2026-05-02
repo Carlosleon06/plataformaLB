@@ -1,14 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { useTeamsStore, type JoinRequest, type TeamCaptainView, type TeamPublic } from '../stores/teams'
+import {
+  useTeamsStore,
+  type JoinRequest,
+  type TeamCaptainView,
+  type TeamCollectiveBracketStats,
+  type TeamPublic,
+  type TrophyAward,
+} from '../stores/teams'
 
 const route = useRoute()
 const auth = useAuthStore()
 const teams = useTeamsStore()
 
 const team = ref<TeamPublic | TeamCaptainView | null>(null)
+const collectiveStats = ref<TeamCollectiveBracketStats | null>(null)
+const trophies = ref<TrophyAward[]>([])
 const joinRequests = ref<JoinRequest[]>([])
 const localError = ref<string | null>(null)
 
@@ -44,10 +53,26 @@ const soleCaptain = computed(() => {
 })
 
 const logoFile = ref<HTMLInputElement | null>(null)
+const sponsorDraft = ref('')
+const streamDraft = ref('')
+const commercialBusy = ref(false)
 
 async function reload() {
   localError.value = null
   team.value = (await teams.getTeam(auth.token, teamId.value)) as TeamPublic | TeamCaptainView
+  sponsorDraft.value = (team.value.sponsorLines ?? []).join('\n')
+  streamDraft.value = team.value.canonicalStreamUrl ?? ''
+
+  try {
+    collectiveStats.value = await teams.fetchCollectiveBracketStats(teamId.value)
+  } catch {
+    collectiveStats.value = null
+  }
+  try {
+    trophies.value = await teams.fetchTeamTrophies(teamId.value)
+  } catch {
+    trophies.value = []
+  }
 
   if (isCaptain.value) {
     joinRequests.value = await teams.listJoinRequests(auth.token!, teamId.value)
@@ -177,6 +202,33 @@ async function disbandTeam() {
     localError.value = e instanceof Error ? e.message : 'Error'
   }
 }
+
+async function saveCommercial() {
+  if (!auth.token || !isCaptain.value) return
+  localError.value = null
+  commercialBusy.value = true
+  try {
+    const sponsorLines = sponsorDraft.value
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 15)
+    await teams.patchCaptainCommercial(auth.token, teamId.value, {
+      sponsorLines,
+      canonicalStreamUrl: streamDraft.value.trim() || '',
+    })
+    await reload()
+  } catch (e) {
+    localError.value = e instanceof Error ? e.message : 'Error'
+  } finally {
+    commercialBusy.value = false
+  }
+}
+
+function fmtStat(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return '—'
+  return Number.isInteger(n) ? String(n) : n.toFixed(2)
+}
 </script>
 
 <template>
@@ -288,6 +340,168 @@ async function disbandTeam() {
           <p class="text-xs text-zinc-500">Máx 2MB. Solo JPG/PNG/WEBP.</p>
         </div>
       </div>
+    </section>
+
+    <section
+      v-if="team.status === 'APPROVED'"
+      class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5"
+    >
+      <h2 class="text-sm font-semibold text-zinc-200">Presencia pública · competencia Leon Bon</h2>
+      <div class="mt-3 space-y-3 text-sm text-zinc-300">
+        <div v-if="team.competitionSummaryOrNull">
+          <dl class="grid gap-2 sm:grid-cols-4">
+            <div>
+              <dt class="text-xs text-zinc-500">Torneos jugados</dt>
+              <dd class="font-mono">{{ team.competitionSummaryOrNull.tournamentsWithApprovedEntry }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs text-zinc-500">W / L bracket</dt>
+              <dd class="font-mono">{{ team.competitionSummaryOrNull.bracketWins }} / {{ team.competitionSummaryOrNull.bracketLosses }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs text-zinc-500">Winrate</dt>
+              <dd class="font-mono">{{ team.competitionSummaryOrNull.winRatePct == null ? '—' : `${team.competitionSummaryOrNull.winRatePct}%` }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div
+          v-if="
+            collectiveStats &&
+            (collectiveStats.attributedCompletedMatchesWithStats > 0 ||
+              collectiveStats.valorant.playerRows > 0 ||
+              collectiveStats.fortnite.playerRows > 0 ||
+              collectiveStats.mlb.playerRows > 0)
+          "
+          class="border-t border-zinc-800 pt-3"
+        >
+          <p class="text-xs font-semibold text-zinc-400">Estadísticas de partidos (admin) · roster {{ collectiveStats.attributedCompletedMatchesWithStats }} partidos con archivo</p>
+          <dl v-if="collectiveStats.valorant.playerRows > 0" class="mt-2 grid gap-2 text-xs sm:grid-cols-3">
+            <div>
+              <dt class="text-zinc-600">Valorant · filas</dt>
+              <dd class="font-mono text-zinc-100">{{ collectiveStats.valorant.playerRows }}</dd>
+            </div>
+            <div>
+              <dt class="text-zinc-600">KDA medio</dt>
+              <dd class="font-mono text-zinc-100">{{ fmtStat(collectiveStats.valorant.avgKda) }}</dd>
+            </div>
+            <div>
+              <dt class="text-zinc-600">K/D/A Σ</dt>
+              <dd class="font-mono text-zinc-100">
+                {{ collectiveStats.valorant.kills }} / {{ collectiveStats.valorant.deaths }} / {{ collectiveStats.valorant.assists }}
+              </dd>
+            </div>
+            <div v-if="collectiveStats.valorant.avgHsPct != null" class="sm:col-span-3">
+              <dt class="text-zinc-600">HS% medio</dt>
+              <dd class="font-mono text-zinc-100">{{ fmtStat(collectiveStats.valorant.avgHsPct) }}</dd>
+            </div>
+          </dl>
+          <dl v-if="collectiveStats.fortnite.playerRows > 0" class="mt-2 grid gap-2 text-xs sm:grid-cols-3">
+            <div>
+              <dt class="text-zinc-600">Fortnite · filas</dt>
+              <dd class="font-mono text-zinc-100">{{ collectiveStats.fortnite.playerRows }}</dd>
+            </div>
+            <div>
+              <dt class="text-zinc-600">KD agreg.</dt>
+              <dd class="font-mono text-zinc-100">{{ fmtStat(collectiveStats.fortnite.killsPerDeathOrNull) }}</dd>
+            </div>
+            <div>
+              <dt class="text-zinc-600">Kills Σ / Deaths Σ</dt>
+              <dd class="font-mono text-zinc-100">{{ collectiveStats.fortnite.kills }} / {{ collectiveStats.fortnite.deaths }}</dd>
+            </div>
+            <div v-if="collectiveStats.fortnite.avgPlacementOrNull != null">
+              <dt class="text-zinc-600">Placement medio</dt>
+              <dd class="font-mono text-zinc-100">{{ fmtStat(collectiveStats.fortnite.avgPlacementOrNull) }}</dd>
+            </div>
+          </dl>
+          <dl v-if="collectiveStats.mlb.playerRows > 0" class="mt-2 grid gap-2 text-xs sm:grid-cols-3">
+            <div>
+              <dt class="text-zinc-600">MLB · filas</dt>
+              <dd class="font-mono text-zinc-100">{{ collectiveStats.mlb.playerRows }}</dd>
+            </div>
+            <div>
+              <dt class="text-zinc-600">AVG partido medio</dt>
+              <dd class="font-mono text-zinc-100">{{ fmtStat(collectiveStats.mlb.avgBattingAvgGame) }}</dd>
+            </div>
+            <div>
+              <dt class="text-zinc-600">HR Σ</dt>
+              <dd class="font-mono text-zinc-100">{{ collectiveStats.mlb.homeRunsSum }}</dd>
+            </div>
+            <div v-if="collectiveStats.mlb.avgInningsPitched != null">
+              <dt class="text-zinc-600">IP medio</dt>
+              <dd class="font-mono text-zinc-100">{{ fmtStat(collectiveStats.mlb.avgInningsPitched) }}</dd>
+            </div>
+            <div v-if="collectiveStats.mlb.avgEraGame != null">
+              <dt class="text-zinc-600">ERA medio</dt>
+              <dd class="font-mono text-zinc-100">{{ fmtStat(collectiveStats.mlb.avgEraGame) }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div v-if="(team.canonicalStreamUrl ?? '').trim().length > 0">
+          <p class="text-xs text-zinc-500">Stream del equipo</p>
+          <a
+            :href="team.canonicalStreamUrl ?? '#'"
+            class="break-all text-sky-400 hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >{{ team.canonicalStreamUrl }}</a>
+        </div>
+
+        <div v-if="team.sponsorLines?.length">
+          <p class="text-xs text-zinc-500">Patrocinio / sponsors</p>
+          <ul class="mt-1 space-y-1 text-zinc-200">
+            <li v-for="(line, ix) in team.sponsorLines" :key="ix" class="text-sm">{{ line }}</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section
+      v-if="team.status === 'APPROVED' && trophies.length > 0"
+      class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5"
+    >
+      <h2 class="text-sm font-semibold text-zinc-200">Palmarés del equipo</h2>
+      <ul class="mt-3 space-y-2 text-sm text-zinc-300">
+        <li
+          v-for="t in trophies"
+          :key="t.id"
+          class="flex flex-wrap items-baseline gap-2 border-b border-zinc-800/70 pb-2 last:border-b-0 last:pb-0"
+        >
+          <span class="rounded bg-amber-950/50 px-1.5 py-0.5 font-mono text-[11px] text-amber-200">{{ t.game }}</span>
+          <span class="text-zinc-100">{{ t.badgeLabel }}</span>
+          <span class="text-zinc-500">—</span>
+          <RouterLink class="text-sky-400 hover:underline" :to="`/tournaments/${t.tournamentId}`">{{ t.tournamentName }}</RouterLink>
+        </li>
+      </ul>
+    </section>
+
+    <section v-if="isCaptain && (team.status === 'PENDING' || team.status === 'APPROVED')" class="rounded-xl border border-amber-900/35 bg-amber-950/15 p-5">
+      <h2 class="text-sm font-semibold text-amber-100">Capitán · sponsors & stream público</h2>
+      <p class="mt-2 text-xs text-zinc-500">Un sponsor por línea (máx. 15). Visible una vez que el equipo quede APPROVED (salvo vista interna).</p>
+      <label class="mt-3 block text-sm">
+        <span class="text-zinc-400">Sponsors</span>
+        <textarea
+          v-model="sponsorDraft"
+          rows="4"
+          class="mt-1 w-full resize-y rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs outline-none focus:border-zinc-600"
+        />
+      </label>
+      <label class="mt-3 block text-sm">
+        <span class="text-zinc-400">URL stream oficial</span>
+        <input
+          v-model="streamDraft"
+          class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs outline-none focus:border-zinc-600"
+        />
+      </label>
+      <button
+        type="button"
+        class="mt-3 rounded-md bg-amber-500 px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-amber-400 disabled:opacity-40"
+        :disabled="commercialBusy"
+        @click="saveCommercial()"
+      >
+        Guardar
+      </button>
     </section>
 
     <section v-if="isCaptainView" class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">

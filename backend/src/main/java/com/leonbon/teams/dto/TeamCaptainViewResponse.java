@@ -18,5 +18,8 @@ public record TeamCaptainViewResponse(
         List<String> coachUserIds,
         List<String> coachUsernames,
         List<String> memberUserIds,
-        List<String> memberUsernames
+        List<String> memberUsernames,
+        List<String> sponsorLines,
+        String canonicalStreamUrl,
+        TeamCompetitionSummaryResponse competitionSummaryOrNull
 ) {}

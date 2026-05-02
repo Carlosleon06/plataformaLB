@@ -1,5 +1,54 @@
+# =============================================================================
+# LEON BON — MVP 0: una sola fuente de verdad para decisiones de producto/runtime
+#
+# Esta plantilla documenta valores por defecto y un flujo manual E2E SIN usar el
+# seed opcional (`app.dev.seedFriendshipBracket`). Ejecutá MongoDB local y este
+# backend + frontend (`npm run dev` en vue).
+#
+# --- Variables de entorno que suelen tocarse ---
+# ADMIN_USERNAMES=juan          # usuarios CSV minúscula → rol ADMIN en registro/migración bootstrap
+# MONGODB_URI=...               # por defecto mongodb://localhost:27017/leonbon
+# CORS_ALLOWED_ORIGINS=...       # lista CSV; front típico http://localhost:5173
+# LEON_TIMEZONE=America/Mexico_City
+# JWT_SECRET=...
+# BET_WINDOW_MINUTES / BET_SLOT_STAGGER_MINUTES
+# TOURNAMENT_MIN_ROSTER_VALORANT / FORTNITE / MLB (tallas de equipo en torneo por juego)
+#
+# --- Checklist E2E mínimo (por UI solamente; no SEED_* ) ---
+# 1) ADMIN_USERNAMES: registrá ese usuario como admin o usá cuenta ya admin.
+# 2) Alta: dos cuentas nuevas jugador (/register + /login).
+# 3) Equipos: jugador crea equipo PENDING → Admin /admin/teams aprueba APPROVED.
+#    Opcional segunda cuenta: Solicitar unirse + capitán acepta (flujo reclutamiento).
+# 4) Torneo: Admin /admin/tournaments/create. Para probar BRACKET con solo 2 cuentas
+#    usá juego MLB (inscripción individual 1vs1): ambos jugadores se inscriben,
+#    admin aprueba 2 entradas, cerrar inscripciones, generar bracket.
+#    Valorant/Fortnite necesitan roster completo según app.tournaments.minRoster.*
+#    (requiere suficientes miembros en el equipo para la inscripción).
+# 5) Partido READY: apuesta solo dentro de [scheduledStartAt, + window] (véase api matches).
+# 6) Admin declara ganador → liquidación parimutuel de apuestas PENDING para ese match.
+# 7) (MVP 2) PUT /api/admin/tournaments/{tid}/matches/{mid}/stats (JSON con una lista por juego) y lectura GET pública …/matches/{mid}/stats.
+# 8) (MVP 3) GET público /api/platform/users/{id}/snapshot y /api/platform/leaderboards/{VALORANT|FORTNITE|MLB} (stats internos).
+# 9) (MVP 5) Notificaciones persistidas Mongo + GET /api/me/notifications; el front muestra toasts si hay usuario logueado.
+#
+# Seed de desarrollo (NO obligatorio para E2E):
+# SEED_FRIENDSHIP_BRACKET=true + torneo ya creado (nombre en seedFriendshipTournamentName).
+# SEED_VALORANT_ARENA=true crea también el torneo y deja todo listo para generar bracket (single elim, 3 equipos).
+#
+# Punto vivo: GET /actuator/health (público) para saber si el proceso arranca.
+# =============================================================================
+
 server:
   port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
 
 spring:
   servlet:
@@ -17,6 +66,10 @@ app:
     # Do not enable in production.
     seedFriendshipBracket: ${SEED_FRIENDSHIP_BRACKET:false}
     seedFriendshipTournamentName: ${SEED_FRIENDSHIP_TOURNAMENT_NAME:Torneo de la amistad}
+    # Crear torneo VALORANT + los 3 equipos semilla + inscripciones aprobadas + cerrar inscripciones
+    # (solo falta «Generar bracket» en admin). No producción.
+    seedValorantArena: ${SEED_VALORANT_ARENA:false}
+    seedValorantArenaName: ${SEED_VALORANT_ARENA_NAME:Cup Valorant (arena dev)}
 
   cors:
     # Comma-separated list (Spring @Value can't bind YAML lists via a single placeholder)
@@ -51,4 +104,11 @@ app:
     dailyClaimAmount: ${DAILY_CLAIM_AMOUNT:100}
     timezone: ${LEON_TIMEZONE:America/Los_Angeles}
     dailyResetHour: ${DAILY_RESET_HOUR:17} # 5pm
+
+  # Parimutuel: el admin abre/cierra ventana manualmente; tras abrir cierra solo en windowMinutes si no cerró antes.
+  bets:
+    windowMinutes: ${BET_WINDOW_MINUTES:5}
+    windowExpirySweepMs: ${BET_WINDOW_EXPIRY_SWEEP_MS:10000}
+    # Espaciado sugerido de hora programada (orden de agenda; no define apertura de apuestas).
+    slotStaggerMinutes: ${BET_SLOT_STAGGER_MINUTES:45}
 

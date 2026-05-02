@@ -5,7 +5,9 @@ import com.leonbon.auth.dto.RegisterRequest;
 import com.leonbon.economy.Transaction;
 import com.leonbon.economy.TransactionRepository;
 import com.leonbon.economy.TransactionType;
+import com.leonbon.infra.mongo.SequenceService;
 import com.leonbon.users.User;
+import com.leonbon.users.UserProfileService;
 import com.leonbon.users.UserRepository;
 import com.leonbon.users.UserRole;
 import java.time.Instant;
@@ -22,6 +24,7 @@ public class AuthService {
     private final TransactionRepository transactionRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final SequenceService sequenceService;
     private final long welcomeBonus;
     private final List<String> adminUsernames;
 
@@ -30,6 +33,7 @@ public class AuthService {
             TransactionRepository transactionRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
+            SequenceService sequenceService,
             @Value("${app.economy.welcomeBonus}") long welcomeBonus,
             @Value("${app.bootstrap.adminUsernamesCsv}") String adminUsernamesCsv
     ) {
@@ -37,6 +41,7 @@ public class AuthService {
         this.transactionRepository = transactionRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.sequenceService = sequenceService;
         this.welcomeBonus = welcomeBonus;
         this.adminUsernames = Arrays.stream(adminUsernamesCsv.split(","))
                 .map(String::trim)
@@ -49,7 +54,18 @@ public class AuthService {
         User user = new User();
         String username = req.getUsername().trim().toLowerCase();
         user.setUsername(username);
+        String normalizedEmail = UserProfileService.normalizeEmail(req.getEmail());
+        if (userRepository.existsByEmailNormalized(normalizedEmail)) {
+            throw new ConflictException("email already exists");
+        }
+        user.setEmailNormalized(normalizedEmail);
+
         user.setNickname(req.getNickname());
+        user.setFullName(trimOrNull(req.getFullName()));
+        user.setCountry(trimOrNull(req.getCountry()));
+        user.setProfileShowFullName(Boolean.TRUE.equals(req.getProfileShowFullName()));
+        user.setLeonPlayerNumber(sequenceService.nextUserLeonPlayerNumber());
+
         user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
         user.setRole(adminUsernames.contains(username) ? UserRole.ADMIN : UserRole.PLAYER);
         user.setLeonCoinsBalance(welcomeBonus);
@@ -59,7 +75,7 @@ public class AuthService {
         try {
             user = userRepository.save(user);
         } catch (DuplicateKeyException e) {
-            throw new ConflictException("username already exists");
+            throw new ConflictException("username or email already exists");
         }
 
         Transaction t = new Transaction();
@@ -85,6 +101,12 @@ public class AuthService {
     private static List<String> rolesFor(User user) {
         UserRole role = user.getRole() == null ? UserRole.PLAYER : user.getRole();
         return role == UserRole.ADMIN ? List.of("ADMIN") : List.of("PLAYER");
+    }
+
+    private static String trimOrNull(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 }
 

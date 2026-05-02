@@ -1,6 +1,9 @@
 package com.leonbon.users;
 
+import com.leonbon.tournaments.GameTitle;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -13,9 +16,39 @@ public class User {
     @Indexed(unique = true)
     private String username;
 
+    /** Id numérico legible (incremental); null en cuentas legacy hasta primera asignación. */
+    private Long leonPlayerNumber;
+
+    @Indexed(unique = true, sparse = true)
+    private String emailNormalized;
+
     private String passwordHash;
 
     private String nickname;
+
+    /** Nombre real opcional (visibilidad vía profileShowFullName). */
+    private String fullName;
+
+    private boolean profileShowFullName;
+
+    /** Residencia o país opcional para el perfil público. */
+    private String country;
+
+    /** Enlaces públicos opcionales. */
+    private String twitchProfileUrl;
+
+    private String youtubeChannelUrl;
+    private String xProfileUrl;
+    private String instagramProfileUrl;
+
+    /** Texto tipo handle o invito a Discord (no necesariamente URL). */
+    private String discordHandle;
+
+    /** Juego principal destacado en el perfil. */
+    private GameTitle preferredGame;
+
+    /** Rango o división textual por videojuego; clave típica: VALORANT, FORTNITE, MLB. */
+    private Map<String, String> rankLabelByGame = new LinkedHashMap<>();
 
     private UserStatus status = UserStatus.ACTIVE;
 
@@ -58,6 +91,103 @@ public class User {
 
     public void setNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public Long getLeonPlayerNumber() {
+        return leonPlayerNumber;
+    }
+
+    public void setLeonPlayerNumber(Long leonPlayerNumber) {
+        this.leonPlayerNumber = leonPlayerNumber;
+    }
+
+    public String getEmailNormalized() {
+        return emailNormalized;
+    }
+
+    public void setEmailNormalized(String emailNormalized) {
+        this.emailNormalized = emailNormalized;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
+    public boolean isProfileShowFullName() {
+        return profileShowFullName;
+    }
+
+    public void setProfileShowFullName(boolean profileShowFullName) {
+        this.profileShowFullName = profileShowFullName;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+
+    public String getTwitchProfileUrl() {
+        return twitchProfileUrl;
+    }
+
+    public void setTwitchProfileUrl(String twitchProfileUrl) {
+        this.twitchProfileUrl = twitchProfileUrl;
+    }
+
+    public String getYoutubeChannelUrl() {
+        return youtubeChannelUrl;
+    }
+
+    public void setYoutubeChannelUrl(String youtubeChannelUrl) {
+        this.youtubeChannelUrl = youtubeChannelUrl;
+    }
+
+    public String getXProfileUrl() {
+        return xProfileUrl;
+    }
+
+    public void setXProfileUrl(String xProfileUrl) {
+        this.xProfileUrl = xProfileUrl;
+    }
+
+    public String getInstagramProfileUrl() {
+        return instagramProfileUrl;
+    }
+
+    public void setInstagramProfileUrl(String instagramProfileUrl) {
+        this.instagramProfileUrl = instagramProfileUrl;
+    }
+
+    public String getDiscordHandle() {
+        return discordHandle;
+    }
+
+    public void setDiscordHandle(String discordHandle) {
+        this.discordHandle = discordHandle;
+    }
+
+    public GameTitle getPreferredGame() {
+        return preferredGame;
+    }
+
+    public void setPreferredGame(GameTitle preferredGame) {
+        this.preferredGame = preferredGame;
+    }
+
+    public Map<String, String> getRankLabelByGame() {
+        return rankLabelByGame;
+    }
+
+    public void setRankLabelByGame(Map<String, String> rankLabelByGame) {
+        this.rankLabelByGame =
+                rankLabelByGame == null ? new LinkedHashMap<>() : new LinkedHashMap<>(rankLabelByGame);
     }
 
     public UserStatus getStatus() {

@@ -2,6 +2,7 @@ package com.leonbon.tournaments;
 
 import com.leonbon.auth.ConflictException;
 import com.leonbon.auth.JwtPrincipal;
+import com.leonbon.notifications.NotificationService;
 import com.leonbon.teams.Team;
 import com.leonbon.teams.TeamRepository;
 import com.leonbon.teams.TeamStatus;
@@ -37,6 +38,7 @@ public class TournamentService {
     private final TournamentEntryRepository tournamentEntryRepository;
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     private final int minRosterValorant;
     private final int minRosterFortnite;
@@ -47,6 +49,7 @@ public class TournamentService {
             TournamentEntryRepository tournamentEntryRepository,
             TeamRepository teamRepository,
             UserRepository userRepository,
+            NotificationService notificationService,
             @Value("${app.tournaments.minRoster.VALORANT}") int minRosterValorant,
             @Value("${app.tournaments.minRoster.FORTNITE}") int minRosterFortnite,
             @Value("${app.tournaments.minRoster.MLB}") int minRosterMlb
@@ -55,6 +58,7 @@ public class TournamentService {
         this.tournamentEntryRepository = tournamentEntryRepository;
         this.teamRepository = teamRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
         this.minRosterValorant = minRosterValorant;
         this.minRosterFortnite = minRosterFortnite;
         this.minRosterMlb = minRosterMlb;
@@ -89,6 +93,16 @@ public class TournamentService {
         t.setCompetitionStartAt(req.getCompetitionStartAt());
         t.setCompetitionEndAt(req.getCompetitionEndAt());
         t.setStreamUrl(trimToNull(req.getStreamUrl()));
+        t.setRulesHtml(trimToBlankable(req.getRulesHtml()));
+        t.setEligibilityNotes(trimToBlankable(req.getEligibilityNotes()));
+        t.setPrizeNotes(trimToBlankable(req.getPrizeNotes()));
+        if (req.getMaxApprovedParticipants() != null) {
+            if (req.getMaxApprovedParticipants() < 1 || req.getMaxApprovedParticipants() > 256) {
+                throw new BadRequestException("maxApprovedParticipants must be between 1 and 256");
+            }
+            t.setMaxApprovedParticipants(req.getMaxApprovedParticipants());
+        }
+        applyPlacementPrizeFields(t, req.getPrizeWinnerSlots(), req.getPrizeLeonCoinsByPlacement());
         t.setCreatedAt(now);
         t.setUpdatedAt(now);
 
@@ -129,10 +143,19 @@ public class TournamentService {
             throw new ConflictException("entry is not pending");
         }
 
+        Integer cap = tournament.getMaxApprovedParticipants();
+        if (cap != null) {
+            long already = tournamentEntryRepository.countByTournamentIdAndStatus(tournament.getId(), TournamentEntryStatus.APPROVED);
+            if (already >= cap) {
+                throw new ConflictException("tournament approved entries cap reached (" + cap + ")");
+            }
+        }
+
         Instant now = Instant.now();
         entry.setStatus(TournamentEntryStatus.APPROVED);
         entry.setUpdatedAt(now);
         entry = tournamentEntryRepository.save(entry);
+        notifyTournamentEntryDecision(tournament, entry, true);
         return toEntryResponse(entry);
     }
 
@@ -151,6 +174,7 @@ public class TournamentService {
         entry.setStatus(TournamentEntryStatus.REJECTED);
         entry.setUpdatedAt(now);
         entry = tournamentEntryRepository.save(entry);
+        notifyTournamentEntryDecision(tournament, entry, false);
         return toEntryResponse(entry);
     }
 
@@ -375,9 +399,50 @@ public class TournamentService {
                 t.getCompetitionStartAt(),
                 t.getCompetitionEndAt(),
                 t.getStreamUrl(),
+                t.getRulesHtml(),
+                t.getEligibilityNotes(),
+                t.getPrizeNotes(),
+                t.getPrizeWinnerSlots(),
+                t.getPrizeLeonCoinsByPlacement() == null ? null : List.copyOf(t.getPrizeLeonCoinsByPlacement()),
+                t.getMaxApprovedParticipants(),
                 t.getBracketSize(),
+                t.getPlacementPrizeLedgerCompletedAt(),
                 t.getCreatedAt()
         );
+    }
+
+    /** Premios monetarios por puesto declarados por el admin en la creación. */
+    private void applyPlacementPrizeFields(Tournament t, Integer slots, List<Long> rawAmounts) {
+        if (slots == null) {
+            t.setPrizeWinnerSlots(null);
+            t.setPrizeLeonCoinsByPlacement(null);
+            return;
+        }
+        if (slots < 0 || slots > 64) {
+            throw new BadRequestException("prizeWinnerSlots must be between 0 and 64");
+        }
+        if (slots == 0) {
+            t.setPrizeWinnerSlots(0);
+            t.setPrizeLeonCoinsByPlacement(List.of());
+            return;
+        }
+        List<Long> am = rawAmounts == null ? List.of() : rawAmounts;
+        if (am.size() != slots) {
+            throw new BadRequestException("prizeLeonCoinsByPlacement must have exactly " + slots + " amounts");
+        }
+        List<Long> normalized = new ArrayList<>();
+        for (Long raw : am) {
+            long v = raw == null ? 0 : raw.longValue();
+            if (v < 0) {
+                throw new BadRequestException("prize amounts must be non-negative");
+            }
+            if (v > 1_000_000_000_000L) {
+                throw new BadRequestException("prize amount per placement exceeds limit");
+            }
+            normalized.add(v);
+        }
+        t.setPrizeWinnerSlots(slots);
+        t.setPrizeLeonCoinsByPlacement(normalized);
     }
 
     private Map<String, Team> loadTeamsForEntries(List<TournamentEntry> rows) {
@@ -456,11 +521,51 @@ public class TournamentService {
         );
     }
 
+    private void notifyTournamentEntryDecision(Tournament tournament, TournamentEntry entry, boolean approved) {
+        LinkedHashSet<String> recipients = new LinkedHashSet<>();
+        TournamentEntryType type = entry.getType() == null ? TournamentEntryType.TEAM : entry.getType();
+        if (type == TournamentEntryType.PLAYER) {
+            String pid = entry.getPlayerId();
+            if (pid != null && !pid.isBlank()) {
+                recipients.add(pid);
+            }
+        } else {
+            if (entry.getTeamId() != null) {
+                teamRepository.findById(entry.getTeamId()).ifPresent(team -> {
+                    if (team.getCaptainUserId() != null && !team.getCaptainUserId().isBlank()) {
+                        recipients.add(team.getCaptainUserId());
+                    }
+                });
+            }
+            List<String> roster = entry.getSelectedRosterUserIds();
+            if (roster != null) {
+                for (String uid : roster) {
+                    if (uid != null && !uid.trim().isEmpty()) recipients.add(uid.trim());
+                }
+            }
+        }
+        String tn = tournament.getName() == null ? "Torneo" : tournament.getName();
+        String tid = tournament.getId();
+        String eid = entry.getId();
+        for (String uid : recipients) {
+            if (approved) {
+                notificationService.publishTournamentEntryApproved(uid, tn, tid, eid);
+            } else {
+                notificationService.publishTournamentEntryRejected(uid, tn, tid, eid);
+            }
+        }
+    }
+
     private static String trimToNull(String s) {
         if (s == null) {
             return null;
         }
         String t = s.trim();
         return t.isEmpty() ? null : t;
+    }
+
+    /** Texto opcional almacenado como cadena vacía en BD en lugar de null. */
+    private static String trimToBlankable(String s) {
+        return s == null ? "" : s.trim();
     }
 }

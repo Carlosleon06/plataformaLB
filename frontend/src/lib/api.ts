@@ -2,6 +2,12 @@ export function apiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 }
 
+/** Endpoint SockJS/STOMP (`/ws`); mismo host que REST. */
+
+export function stompSockJsUrl(): string {
+  return `${apiBaseUrl().replace(/\/$/, '')}/ws`
+}
+
 /** Accepts a raw string or a Pinia/Vue ref-like `{ value: string }` so Authorization is never malformed. */
 export function coerceBearerToken(token: unknown): string | null {
   if (token == null) return null
