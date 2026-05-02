@@ -2,6 +2,9 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { apiFetch } from '../lib/api'
 
+/** Same key as in `apiFetch` / localStorage; use for fallbacks when reading the session token. */
+export const LEONBON_TOKEN_STORAGE_KEY = 'leonbon.token'
+
 type MeResponse = {
   id: string
   username: string
@@ -20,7 +23,7 @@ type TransactionResponse = {
   createdAt: string
 }
 
-const TOKEN_KEY = 'leonbon.token'
+const TOKEN_KEY = LEONBON_TOKEN_STORAGE_KEY
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))

@@ -1,7 +1,9 @@
 package com.leonbon.tournaments;
 
+import com.leonbon.auth.JwtPrincipal;
 import com.leonbon.tournaments.dto.TournamentEntryResponse;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,14 +19,16 @@ public class AdminTournamentEntryController {
     }
 
     @PostMapping("/{tournamentId}/entries/{entryId}/approve")
-    @PreAuthorize("hasRole('ADMIN')")
-    public TournamentEntryResponse approve(@PathVariable String tournamentId, @PathVariable String entryId) {
-        return tournamentService.approveEntryAsAdmin(tournamentId, entryId);
+    @PreAuthorize("isAuthenticated()")
+    public TournamentEntryResponse approve(Authentication auth, @PathVariable String tournamentId, @PathVariable String entryId) {
+        JwtPrincipal p = (JwtPrincipal) auth.getPrincipal();
+        return tournamentService.approveEntryAsAdmin(p, tournamentId, entryId);
     }
 
     @PostMapping("/{tournamentId}/entries/{entryId}/reject")
-    @PreAuthorize("hasRole('ADMIN')")
-    public TournamentEntryResponse reject(@PathVariable String tournamentId, @PathVariable String entryId) {
-        return tournamentService.rejectEntryAsAdmin(tournamentId, entryId);
+    @PreAuthorize("isAuthenticated()")
+    public TournamentEntryResponse reject(Authentication auth, @PathVariable String tournamentId, @PathVariable String entryId) {
+        JwtPrincipal p = (JwtPrincipal) auth.getPrincipal();
+        return tournamentService.rejectEntryAsAdmin(p, tournamentId, entryId);
     }
 }

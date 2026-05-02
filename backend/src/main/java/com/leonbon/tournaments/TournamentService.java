@@ -11,6 +11,7 @@ import com.leonbon.tournaments.dto.TournamentEntryResponse;
 import com.leonbon.tournaments.dto.TournamentResponse;
 import com.leonbon.users.User;
 import com.leonbon.users.UserRepository;
+import com.leonbon.users.UserRole;
 import com.leonbon.users.UserStatus;
 import com.leonbon.web.BadRequestException;
 import com.leonbon.web.ForbiddenException;
@@ -56,7 +57,16 @@ public class TournamentService {
         this.minRosterMlb = minRosterMlb;
     }
 
-    public TournamentResponse createTournamentAsAdmin(CreateTournamentRequest req) {
+    private void assertDbAdmin(JwtPrincipal principal) {
+        User u = userRepository.findById(principal.userId()).orElseThrow(() -> new NotFoundException("user not found"));
+        UserRole role = u.getRole() == null ? UserRole.PLAYER : u.getRole();
+        if (role != UserRole.ADMIN) {
+            throw new ForbiddenException("admin only");
+        }
+    }
+
+    public TournamentResponse createTournamentAsAdmin(JwtPrincipal admin, CreateTournamentRequest req) {
+        assertDbAdmin(admin);
         validateTournamentSchedule(
                 req.getRegistrationStartAt(),
                 req.getRegistrationEndAt(),
@@ -103,7 +113,8 @@ public class TournamentService {
                 .toList();
     }
 
-    public TournamentEntryResponse approveEntryAsAdmin(String tournamentId, String entryId) {
+    public TournamentEntryResponse approveEntryAsAdmin(JwtPrincipal admin, String tournamentId, String entryId) {
+        assertDbAdmin(admin);
         Tournament tournament = tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
         TournamentEntry entry = tournamentEntryRepository.findById(entryId).orElseThrow(() -> new NotFoundException("entry not found"));
         if (!Objects.equals(entry.getTournamentId(), tournament.getId())) {
@@ -120,7 +131,8 @@ public class TournamentService {
         return toEntryResponse(entry);
     }
 
-    public TournamentEntryResponse rejectEntryAsAdmin(String tournamentId, String entryId) {
+    public TournamentEntryResponse rejectEntryAsAdmin(JwtPrincipal admin, String tournamentId, String entryId) {
+        assertDbAdmin(admin);
         Tournament tournament = tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
         TournamentEntry entry = tournamentEntryRepository.findById(entryId).orElseThrow(() -> new NotFoundException("entry not found"));
         if (!Objects.equals(entry.getTournamentId(), tournament.getId())) {

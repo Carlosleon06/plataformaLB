@@ -1,9 +1,11 @@
 package com.leonbon.tournaments;
 
+import com.leonbon.auth.JwtPrincipal;
 import com.leonbon.tournaments.dto.CreateTournamentRequest;
 import com.leonbon.tournaments.dto.TournamentResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,8 +21,9 @@ public class AdminTournamentController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public TournamentResponse create(@Valid @RequestBody CreateTournamentRequest body) {
-        return tournamentService.createTournamentAsAdmin(body);
+    @PreAuthorize("isAuthenticated()")
+    public TournamentResponse create(Authentication auth, @Valid @RequestBody CreateTournamentRequest body) {
+        JwtPrincipal p = (JwtPrincipal) auth.getPrincipal();
+        return tournamentService.createTournamentAsAdmin(p, body);
     }
 }

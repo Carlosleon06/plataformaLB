@@ -1,8 +1,10 @@
 package com.leonbon.teams;
 
+import com.leonbon.auth.JwtPrincipal;
 import com.leonbon.teams.dto.PendingTeamAdminRow;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,32 +21,37 @@ public class AdminTeamController {
     }
 
     @GetMapping("/pending")
-    @PreAuthorize("hasRole('ADMIN')")
-    public List<PendingTeamAdminRow> listPending() {
-        return teamService.listPendingTeamsForAdmin();
+    @PreAuthorize("isAuthenticated()")
+    public List<PendingTeamAdminRow> listPending(Authentication auth) {
+        JwtPrincipal p = (JwtPrincipal) auth.getPrincipal();
+        return teamService.listPendingTeamsForAdmin(p);
     }
 
     @PostMapping("/{teamId}/approve")
-    @PreAuthorize("hasRole('ADMIN')")
-    public void approve(@PathVariable String teamId) {
-        teamService.approveTeamAsAdmin(teamId);
+    @PreAuthorize("isAuthenticated()")
+    public void approve(Authentication auth, @PathVariable String teamId) {
+        JwtPrincipal p = (JwtPrincipal) auth.getPrincipal();
+        teamService.approveTeamAsAdmin(p, teamId);
     }
 
     @PostMapping("/{teamId}/reject")
-    @PreAuthorize("hasRole('ADMIN')")
-    public void reject(@PathVariable String teamId) {
-        teamService.rejectTeamAsAdmin(teamId);
+    @PreAuthorize("isAuthenticated()")
+    public void reject(Authentication auth, @PathVariable String teamId) {
+        JwtPrincipal p = (JwtPrincipal) auth.getPrincipal();
+        teamService.rejectTeamAsAdmin(p, teamId);
     }
 
     @PostMapping("/{teamId}/suspend")
-    @PreAuthorize("hasRole('ADMIN')")
-    public void suspend(@PathVariable String teamId) {
-        teamService.suspendTeamAsAdmin(teamId);
+    @PreAuthorize("isAuthenticated()")
+    public void suspend(Authentication auth, @PathVariable String teamId) {
+        JwtPrincipal p = (JwtPrincipal) auth.getPrincipal();
+        teamService.suspendTeamAsAdmin(p, teamId);
     }
 
     @PostMapping("/{teamId}/logo/reset")
-    @PreAuthorize("hasRole('ADMIN')")
-    public void resetLogo(@PathVariable String teamId) {
-        teamService.resetLogoAdmin(teamId);
+    @PreAuthorize("isAuthenticated()")
+    public void resetLogo(Authentication auth, @PathVariable String teamId) {
+        JwtPrincipal p = (JwtPrincipal) auth.getPrincipal();
+        teamService.resetLogoAdmin(p, teamId);
     }
 }

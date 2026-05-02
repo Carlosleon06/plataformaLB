@@ -2,14 +2,26 @@ export function apiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
 }
 
-export async function apiFetch(path: string, init: RequestInit = {}, token?: string | null) {
+/** Accepts a raw string or a Pinia/Vue ref-like `{ value: string }` so Authorization is never malformed. */
+export function coerceBearerToken(token: unknown): string | null {
+  if (token == null) return null
+  if (typeof token === 'string') return token.length > 0 ? token : null
+  if (typeof token === 'object' && token !== null && 'value' in token) {
+    const v = (token as { value: unknown }).value
+    if (typeof v === 'string' && v.length > 0) return v
+  }
+  return null
+}
+
+export async function apiFetch(path: string, init: RequestInit = {}, token?: string | null | unknown) {
   const headers = new Headers(init.headers)
   const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData
   if (!headers.has('Content-Type') && init.body && !isFormData) {
     headers.set('Content-Type', 'application/json')
   }
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`)
+  const bearer = coerceBearerToken(token)
+  if (bearer) {
+    headers.set('Authorization', `Bearer ${bearer}`)
   }
 
   const res = await fetch(`${apiBaseUrl()}${path}`, { ...init, headers })

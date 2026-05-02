@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { coerceBearerToken } from '../lib/api'
+import { LEONBON_TOKEN_STORAGE_KEY, useAuthStore } from '../stores/auth'
 import { useTeamsStore, type PendingTeamAdminRow } from '../stores/teams'
 
 const auth = useAuthStore()
@@ -11,17 +12,23 @@ const rows = ref<PendingTeamAdminRow[]>([])
 const localError = ref<string | null>(null)
 const rowBusy = ref<string | null>(null)
 
+function resolveBearer(): string | null {
+  return coerceBearerToken(auth.token) ?? (typeof localStorage !== 'undefined' ? localStorage.getItem(LEONBON_TOKEN_STORAGE_KEY) : null)
+}
+
 async function load() {
-  if (!auth.token) return
+  const bearer = resolveBearer()
+  if (!bearer) return
   localError.value = null
   try {
-    rows.value = await teams.listPendingTeamsAdmin(auth.token)
+    rows.value = await teams.listPendingTeamsAdmin(bearer)
   } catch (e) {
     localError.value = e instanceof Error ? e.message : 'Error'
   }
 }
 
 onMounted(async () => {
+  await auth.bootstrap()
   await load()
 })
 
@@ -30,11 +37,12 @@ function fmt(iso: string) {
 }
 
 async function approve(teamId: string) {
-  if (!auth.token) return
+  const bearer = resolveBearer()
+  if (!bearer) return
   rowBusy.value = teamId
   localError.value = null
   try {
-    await teams.approveTeamAdmin(auth.token, teamId)
+    await teams.approveTeamAdmin(bearer, teamId)
     await load()
   } catch (e) {
     localError.value = e instanceof Error ? e.message : 'Error'
@@ -44,11 +52,12 @@ async function approve(teamId: string) {
 }
 
 async function reject(teamId: string) {
-  if (!auth.token) return
+  const bearer = resolveBearer()
+  if (!bearer) return
   rowBusy.value = teamId
   localError.value = null
   try {
-    await teams.rejectTeamAdmin(auth.token, teamId)
+    await teams.rejectTeamAdmin(bearer, teamId)
     await load()
   } catch (e) {
     localError.value = e instanceof Error ? e.message : 'Error'

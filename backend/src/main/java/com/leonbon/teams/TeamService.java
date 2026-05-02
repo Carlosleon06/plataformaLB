@@ -11,6 +11,7 @@ import com.leonbon.teams.dto.TeamPublicResponse;
 import com.leonbon.auth.ConflictException;
 import com.leonbon.users.User;
 import com.leonbon.users.UserRepository;
+import com.leonbon.users.UserRole;
 import com.leonbon.users.UserStatus;
 import com.leonbon.web.BadRequestException;
 import com.leonbon.web.ForbiddenException;
@@ -98,7 +99,16 @@ public class TeamService {
                 .toList();
     }
 
-    public List<PendingTeamAdminRow> listPendingTeamsForAdmin() {
+    public void assertDbAdmin(JwtPrincipal principal) {
+        User u = userRepository.findById(principal.userId()).orElseThrow(() -> new NotFoundException("user not found"));
+        UserRole role = u.getRole() == null ? UserRole.PLAYER : u.getRole();
+        if (role != UserRole.ADMIN) {
+            throw new ForbiddenException("admin only");
+        }
+    }
+
+    public List<PendingTeamAdminRow> listPendingTeamsForAdmin(JwtPrincipal admin) {
+        assertDbAdmin(admin);
         return teamRepository.findTop100ByStatusOrderByCreatedAtAsc(TeamStatus.PENDING).stream()
                 .map(t -> {
                     User cap = userRepository.findById(t.getCaptainUserId()).orElseThrow();
@@ -313,7 +323,8 @@ public class TeamService {
         return toCaptainView(team);
     }
 
-    public void approveTeamAsAdmin(String teamId) {
+    public void approveTeamAsAdmin(JwtPrincipal admin, String teamId) {
+        assertDbAdmin(admin);
         Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
         if (team.getStatus() != TeamStatus.PENDING) {
             throw new ConflictException("team is not pending");
@@ -323,7 +334,8 @@ public class TeamService {
         teamRepository.save(team);
     }
 
-    public void rejectTeamAsAdmin(String teamId) {
+    public void rejectTeamAsAdmin(JwtPrincipal admin, String teamId) {
+        assertDbAdmin(admin);
         Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
         if (team.getStatus() != TeamStatus.PENDING) {
             throw new ConflictException("team is not pending");
@@ -333,7 +345,8 @@ public class TeamService {
         teamRepository.save(team);
     }
 
-    public void suspendTeamAsAdmin(String teamId) {
+    public void suspendTeamAsAdmin(JwtPrincipal admin, String teamId) {
+        assertDbAdmin(admin);
         Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
         team.setStatus(TeamStatus.SUSPENDED);
         team.setUpdatedAt(Instant.now());
@@ -367,7 +380,8 @@ public class TeamService {
         return toCaptainView(teamRepository.findById(teamId).orElseThrow());
     }
 
-    public void resetLogoAdmin(String teamId) {
+    public void resetLogoAdmin(JwtPrincipal admin, String teamId) {
+        assertDbAdmin(admin);
         Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
         Instant now = Instant.now();
         team.setLogoUrl(defaultLogoUrl);
