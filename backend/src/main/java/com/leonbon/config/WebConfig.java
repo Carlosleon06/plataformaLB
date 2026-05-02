@@ -1,5 +1,6 @@
 package com.leonbon.config;
 
+import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -12,8 +13,13 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class WebConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource(
-            @Value("${app.cors.allowedOrigins}") List<String> allowedOrigins
+            @Value("${app.cors.allowedOriginsCsv}") String allowedOriginsCsv
     ) {
+        List<String> allowedOrigins = Arrays.stream(allowedOriginsCsv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowedOrigins(allowedOrigins);
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
