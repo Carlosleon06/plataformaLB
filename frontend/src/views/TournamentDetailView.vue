@@ -81,10 +81,27 @@ async function reload() {
   entries.value = await tournaments.listEntries(id)
   matches.value = await tournaments.listMatches(id)
 
-  if (auth.isAuthed && auth.token) {
-    captainTeams.value = await teams.listMyCaptainTeams(auth.token)
+  const bearer = resolveBearer()
+  if (bearer) {
+    try {
+      captainTeams.value = await teams.listMyCaptainTeams(bearer)
+    } catch (e) {
+      captainTeams.value = []
+      const msg = e instanceof Error ? e.message : ''
+      if (msg.includes('401')) {
+        localError.value =
+          'No se pudo validar la sesión al cargar tus equipos (401). Prueba cerrar sesión y entrar de nuevo.'
+      } else {
+        localError.value = msg || 'No se pudieron cargar tus equipos de capitán.'
+      }
+    }
     if (isTeamGame.value && selectedTeamId.value) {
-      await loadRosterDetail(selectedTeamId.value)
+      try {
+        await loadRosterDetail(selectedTeamId.value)
+      } catch {
+        rosterDetail.value = null
+        selectedRosterIds.value = []
+      }
     }
   } else {
     captainTeams.value = []
@@ -93,12 +110,13 @@ async function reload() {
 }
 
 async function loadRosterDetail(teamId: string) {
-  if (!auth.token || !teamId) {
+  const bearer = resolveBearer()
+  if (!bearer || !teamId) {
     rosterDetail.value = null
     selectedRosterIds.value = []
     return
   }
-  const t = (await teams.getTeam(auth.token, teamId)) as TeamCaptainView
+  const t = (await teams.getTeam(bearer, teamId)) as TeamCaptainView
   if (!('memberUserIds' in t)) {
     rosterDetail.value = null
     selectedRosterIds.value = []
@@ -134,6 +152,7 @@ function memberLabel(idx: number) {
 
 onMounted(async () => {
   try {
+    await auth.bootstrap()
     await reload()
   } catch (e) {
     localError.value = e instanceof Error ? e.message : 'Error'
@@ -415,7 +434,8 @@ async function setMatchWinner(matchId: string, winnerEntryId: string) {
                   <option v-for="ct in captainTeams" :key="ct.id" :value="ct.id">{{ ct.name }} [{{ ct.tag }}]</option>
                 </select>
                 <p v-if="captainTeams.length === 0" class="mt-2 text-xs text-zinc-500">
-                  No eres capitán de ningún equipo aprobado.
+                  No hay equipos donde seas capitán y el equipo esté aprobado por staff (los pendientes no aparecen
+                  aquí).
                   <RouterLink class="text-sky-400 hover:underline" to="/teams/create">Crear equipo</RouterLink>
                   o
                   <RouterLink class="text-sky-400 hover:underline" to="/teams">explorar equipos</RouterLink>.
