@@ -38,6 +38,11 @@ export type TournamentEntry = {
   status: string
   selectedRosterUserIds: string[]
   createdAt: string
+  /** Present for TEAM entries when backend could resolve the team. */
+  teamName?: string | null
+  teamTag?: string | null
+  /** Present for PLAYER entries when backend could resolve the user. */
+  playerUsername?: string | null
 }
 
 export type CreateTournamentPayload = {
@@ -50,6 +55,24 @@ export type CreateTournamentPayload = {
   competitionStartAt: string
   competitionEndAt: string
   streamUrl?: string | null
+}
+
+/** Human-readable row for tournament entry lists (team name/tag or player username). */
+export function entryParticipantLabel(e: TournamentEntry): string {
+  if (e.type === 'TEAM') {
+    const name = e.teamName?.trim()
+    const tag = e.teamTag?.trim()
+    if (name && tag) return `${name} [${tag}]`
+    if (name) return name
+    if (tag) return `[${tag}]`
+    return e.teamId ?? '—'
+  }
+  if (e.type === 'PLAYER') {
+    const u = e.playerUsername?.trim()
+    if (u) return u
+    return e.playerId ?? '—'
+  }
+  return '—'
 }
 
 /** Defaults match backend `application.yml` (dev). */

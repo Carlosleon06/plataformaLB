@@ -18,8 +18,11 @@ import com.leonbon.web.ForbiddenException;
 import com.leonbon.web.NotFoundException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
@@ -108,9 +111,10 @@ public class TournamentService {
 
     public List<TournamentEntryResponse> listEntries(String tournamentId) {
         tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
-        return tournamentEntryRepository.findByTournamentIdOrderByCreatedAtAsc(tournamentId).stream()
-                .map(this::toEntryResponse)
-                .toList();
+        List<TournamentEntry> rows = tournamentEntryRepository.findByTournamentIdOrderByCreatedAtAsc(tournamentId);
+        Map<String, Team> teamsById = loadTeamsForEntries(rows);
+        Map<String, User> usersById = loadUsersForEntries(rows);
+        return rows.stream().map(e -> toEntryResponse(e, teamsById, usersById)).toList();
     }
 
     public TournamentEntryResponse approveEntryAsAdmin(JwtPrincipal admin, String tournamentId, String entryId) {
@@ -375,7 +379,67 @@ public class TournamentService {
         );
     }
 
+    private Map<String, Team> loadTeamsForEntries(List<TournamentEntry> rows) {
+        Set<String> ids = new HashSet<>();
+        for (TournamentEntry row : rows) {
+            if (row.getType() == TournamentEntryType.TEAM && row.getTeamId() != null) {
+                ids.add(row.getTeamId());
+            }
+        }
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Team> out = new HashMap<>();
+        for (Team t : teamRepository.findAllById(ids)) {
+            out.put(t.getId(), t);
+        }
+        return out;
+    }
+
+    private Map<String, User> loadUsersForEntries(List<TournamentEntry> rows) {
+        Set<String> ids = new HashSet<>();
+        for (TournamentEntry row : rows) {
+            if (row.getType() == TournamentEntryType.PLAYER && row.getPlayerId() != null) {
+                ids.add(row.getPlayerId());
+            }
+        }
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, User> out = new HashMap<>();
+        for (User u : userRepository.findAllById(ids)) {
+            out.put(u.getId(), u);
+        }
+        return out;
+    }
+
     private TournamentEntryResponse toEntryResponse(TournamentEntry e) {
+        Map<String, Team> teams = new HashMap<>();
+        Map<String, User> users = new HashMap<>();
+        if (e.getType() == TournamentEntryType.TEAM && e.getTeamId() != null) {
+            teamRepository.findById(e.getTeamId()).ifPresent(t -> teams.put(t.getId(), t));
+        } else if (e.getType() == TournamentEntryType.PLAYER && e.getPlayerId() != null) {
+            userRepository.findById(e.getPlayerId()).ifPresent(u -> users.put(u.getId(), u));
+        }
+        return toEntryResponse(e, teams, users);
+    }
+
+    private TournamentEntryResponse toEntryResponse(TournamentEntry e, Map<String, Team> teamsById, Map<String, User> usersById) {
+        String teamName = null;
+        String teamTag = null;
+        String playerUsername = null;
+        if (e.getType() == TournamentEntryType.TEAM && e.getTeamId() != null) {
+            Team t = teamsById.get(e.getTeamId());
+            if (t != null) {
+                teamName = t.getName();
+                teamTag = t.getTag();
+            }
+        } else if (e.getType() == TournamentEntryType.PLAYER && e.getPlayerId() != null) {
+            User u = usersById.get(e.getPlayerId());
+            if (u != null) {
+                playerUsername = u.getUsername();
+            }
+        }
         return new TournamentEntryResponse(
                 e.getId(),
                 e.getTournamentId(),
@@ -384,7 +448,10 @@ public class TournamentService {
                 e.getPlayerId(),
                 e.getStatus(),
                 e.getSelectedRosterUserIds() == null ? List.of() : List.copyOf(e.getSelectedRosterUserIds()),
-                e.getCreatedAt()
+                e.getCreatedAt(),
+                teamName,
+                teamTag,
+                playerUsername
         );
     }
 

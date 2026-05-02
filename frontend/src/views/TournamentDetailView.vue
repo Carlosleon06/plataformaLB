@@ -6,6 +6,7 @@ import { LEONBON_TOKEN_STORAGE_KEY, useAuthStore } from '../stores/auth'
 import { useTeamsStore, type CaptainTeamSummary, type TeamCaptainView } from '../stores/teams'
 import {
   useTournamentsStore,
+  entryParticipantLabel,
   rosterSizeForGame,
   type BracketMatch,
   type Tournament,
@@ -420,7 +421,9 @@ async function setMatchWinner(matchId: string, winnerEntryId: string) {
           <template v-else-if="isTeamGame">
             <p v-if="myTeamEntries.length > 0" class="mt-3 text-sm text-zinc-400">
               Tu(s) equipo(s) con inscripción en este torneo:
-              <span v-for="e in myTeamEntries" :key="e.id" class="ml-1 font-mono text-zinc-200">{{ e.teamId }} ({{ e.status }})</span>
+              <span v-for="e in myTeamEntries" :key="e.id" class="ml-1 text-zinc-200"
+                >{{ entryParticipantLabel(e) }} <span class="font-mono text-zinc-400">({{ e.status }})</span></span
+              >
             </p>
 
             <div class="mt-4 space-y-4">
@@ -507,7 +510,7 @@ async function setMatchWinner(matchId: string, winnerEntryId: string) {
             <tbody>
               <tr v-for="e in entries" :key="e.id" class="border-t border-zinc-800 bg-zinc-950/40">
                 <td class="px-3 py-2 font-mono text-zinc-300">{{ e.type }}</td>
-                <td class="px-3 py-2 font-mono text-zinc-200">{{ e.teamId ?? e.playerId ?? '—' }}</td>
+                <td class="px-3 py-2 text-zinc-200">{{ entryParticipantLabel(e) }}</td>
                 <td class="px-3 py-2">{{ e.status }}</td>
                 <td class="px-3 py-2 text-zinc-400">{{ fmt(e.createdAt) }}</td>
                 <td v-if="isAdmin" class="px-3 py-2 text-right">
