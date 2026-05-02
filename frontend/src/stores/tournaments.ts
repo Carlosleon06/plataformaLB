@@ -21,6 +21,8 @@ export type Tournament = {
 export type BracketMatch = {
   id: string
   tournamentId: string
+  /** WB = ganadores, LB = perdedores, GF = final doble, RR = todos vs todos */
+  bracketPool?: 'WB' | 'LB' | 'GF' | 'RR'
   round: number
   indexInRound: number
   entryIdA: string | null

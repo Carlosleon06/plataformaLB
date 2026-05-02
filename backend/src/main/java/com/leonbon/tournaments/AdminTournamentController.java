@@ -43,7 +43,7 @@ public class AdminTournamentController {
     @PreAuthorize("isAuthenticated()")
     public TournamentResponse generateBracket(Authentication auth, @PathVariable String tournamentId) {
         JwtPrincipal p = (JwtPrincipal) auth.getPrincipal();
-        return tournamentBracketService.generateSingleElimBracketAsAdmin(p, tournamentId);
+        return tournamentBracketService.generateBracketAsAdmin(p, tournamentId);
     }
 
     @PostMapping("/{tournamentId}/matches/{matchId}/winner")

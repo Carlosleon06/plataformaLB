@@ -9,7 +9,12 @@ public interface BracketMatchRepository extends MongoRepository<BracketMatch, St
 
     void deleteByTournamentId(String tournamentId);
 
-    List<BracketMatch> findByTournamentIdOrderByRoundAscIndexInRoundAsc(String tournamentId);
+    List<BracketMatch> findByTournamentIdOrderByBracketPoolAscRoundAscIndexInRoundAsc(String tournamentId);
 
+    Optional<BracketMatch> findByTournamentIdAndBracketPoolAndRoundAndIndexInRound(
+            String tournamentId, BracketPool bracketPool, int round, int indexInRound);
+
+    /** @deprecated use {@link #findByTournamentIdAndBracketPoolAndRoundAndIndexInRound} with {@link BracketPool#WB} */
+    @Deprecated
     Optional<BracketMatch> findByTournamentIdAndRoundAndIndexInRound(String tournamentId, int round, int indexInRound);
 }

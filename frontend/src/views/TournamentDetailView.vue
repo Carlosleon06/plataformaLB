@@ -58,7 +58,6 @@ const registrationOpen = computed(() => tournament.value?.lifecycleStatus === 'R
 const canBuildBracket = computed(
   () =>
     isAdmin.value &&
-    tournament.value?.format === 'SINGLE_ELIM' &&
     tournament.value?.lifecycleStatus === 'REGISTRATION_CLOSED' &&
     !tournament.value?.bracketSize,
 )
@@ -79,6 +78,19 @@ function entryDisplayForBracket(entryId: string | null) {
  * Celda A/B del bracket: nombre del equipo/jugador; si aún no hay entrada asignada y el partido espera
  * rondas previas, "—"; si es hueco de bye real en una partida ya armada, "BYE".
  */
+function bracketPoolLabel(pool: string) {
+  switch (pool) {
+    case 'LB':
+      return 'Perdedores'
+    case 'GF':
+      return 'Final'
+    case 'RR':
+      return 'Liga (RR)'
+    default:
+      return 'Ganadores'
+  }
+}
+
 function bracketSlotLabel(entryId: string | null, match: BracketMatch) {
   if (entryId) {
     const row = entries.value.find((x) => x.id === entryId)
@@ -262,7 +274,7 @@ async function generateBracket() {
   adminBracketBusy.value = true
   try {
     await tournaments.generateBracketAdmin(bearer, tournament.value.id)
-    successMsg.value = 'Bracket generado. Torneo en LIVE.'
+    successMsg.value = 'Calendario / bracket generado. Torneo en LIVE.'
     await reload()
   } catch (e) {
     localError.value = e instanceof Error ? e.message : 'Error'
@@ -333,10 +345,12 @@ async function setMatchWinner(matchId: string, winnerEntryId: string) {
       </dl>
 
       <section v-if="isAdmin" class="rounded-xl border border-amber-900/40 bg-amber-950/20 p-5">
-        <h2 class="text-sm font-semibold text-amber-100">Admin — bracket (MVP4)</h2>
+        <h2 class="text-sm font-semibold text-amber-100">Admin — bracket</h2>
         <p class="mt-1 text-xs text-amber-200/80">
-          Solo <span class="font-mono">SINGLE_ELIM</span>. Cierra inscripciones, aprueba al menos 2 entradas, luego genera el
-          bracket. Marca ganador en cada partida <span class="font-mono">READY</span>.
+          Cierra inscripciones, aprueba al menos 2 entradas, luego genera el calendario.
+          <span class="font-mono">SINGLE_ELIM</span> y <span class="font-mono">DOUBLE_ELIM</span> (hasta 8 slots en cuadro de
+          ganadores). <span class="font-mono">ROUND_ROBIN</span>: todos contra todos; al terminar todas las partidas el torneo pasa a
+          <span class="font-mono">COMPLETED</span>. Marca ganador en cada partida <span class="font-mono">READY</span>.
         </p>
         <div class="mt-4 flex flex-wrap gap-2">
           <button
@@ -366,6 +380,7 @@ async function setMatchWinner(matchId: string, winnerEntryId: string) {
           <table class="w-full min-w-[28rem] text-left text-xs">
             <thead class="bg-zinc-950 text-zinc-400">
               <tr>
+                <th class="px-3 py-2">Tabla</th>
                 <th class="px-3 py-2">Ronda</th>
                 <th class="px-3 py-2">#</th>
                 <th class="px-3 py-2">A</th>
@@ -377,6 +392,7 @@ async function setMatchWinner(matchId: string, winnerEntryId: string) {
             </thead>
             <tbody>
               <tr v-for="m in matches" :key="m.id" class="border-t border-zinc-800 bg-zinc-950/40">
+                <td class="px-3 py-2 text-zinc-400">{{ bracketPoolLabel(m.bracketPool ?? 'WB') }}</td>
                 <td class="px-3 py-2 font-mono text-zinc-300">{{ m.round }}</td>
                 <td class="px-3 py-2 font-mono text-zinc-400">{{ m.indexInRound }}</td>
                 <td class="px-3 py-2 text-zinc-200">{{ bracketSlotLabel(m.entryIdA, m) }}</td>

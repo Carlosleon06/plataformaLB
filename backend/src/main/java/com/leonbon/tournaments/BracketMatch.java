@@ -27,6 +27,9 @@ public class BracketMatch {
 
     private BracketMatchStatus status = BracketMatchStatus.WAITING;
 
+    /** Sub-bracket; null in legacy DB rows means {@link BracketPool#WB}. */
+    private BracketPool bracketPool;
+
     private Instant createdAt = Instant.now();
     private Instant updatedAt = Instant.now();
 
@@ -92,6 +95,14 @@ public class BracketMatch {
 
     public void setStatus(BracketMatchStatus status) {
         this.status = status;
+    }
+
+    public BracketPool getBracketPool() {
+        return bracketPool == null ? BracketPool.WB : bracketPool;
+    }
+
+    public void setBracketPool(BracketPool bracketPool) {
+        this.bracketPool = bracketPool;
     }
 
     public Instant getCreatedAt() {
