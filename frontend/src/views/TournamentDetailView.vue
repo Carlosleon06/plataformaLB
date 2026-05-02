@@ -38,6 +38,12 @@ const myTeamEntries = computed(() =>
   entries.value.filter((e) => e.type === 'TEAM' && e.teamId && myCaptainTeamIds.value.has(e.teamId)),
 )
 
+const isAdmin = computed(() => auth.me?.role === 'ADMIN')
+
+const tableColspan = computed(() => (isAdmin.value ? 5 : 4))
+
+const adminEntryBusy = ref<string | null>(null)
+
 async function reload() {
   localError.value = null
   const id = tournamentId.value
@@ -134,6 +140,34 @@ async function submitMlb() {
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleString()
+}
+
+async function approveEntry(entryId: string) {
+  if (!auth.token || !tournament.value) return
+  localError.value = null
+  adminEntryBusy.value = entryId
+  try {
+    await tournaments.approveEntryAdmin(auth.token, tournament.value.id, entryId)
+    await reload()
+  } catch (e) {
+    localError.value = e instanceof Error ? e.message : 'Error'
+  } finally {
+    adminEntryBusy.value = null
+  }
+}
+
+async function rejectEntry(entryId: string) {
+  if (!auth.token || !tournament.value) return
+  localError.value = null
+  adminEntryBusy.value = entryId
+  try {
+    await tournaments.rejectEntryAdmin(auth.token, tournament.value.id, entryId)
+    await reload()
+  } catch (e) {
+    localError.value = e instanceof Error ? e.message : 'Error'
+  } finally {
+    adminEntryBusy.value = null
+  }
 }
 </script>
 
@@ -265,6 +299,7 @@ function fmt(iso: string) {
 
       <section class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
         <h2 class="text-sm font-semibold text-zinc-200">Participantes (solicitudes)</h2>
+        <p v-if="isAdmin" class="mt-1 text-xs text-zinc-500">Como admin puedes aprobar o rechazar solicitudes pendientes.</p>
         <div class="mt-4 overflow-hidden rounded-lg border border-zinc-800">
           <table class="w-full text-left text-xs">
             <thead class="bg-zinc-950 text-zinc-400">
@@ -273,6 +308,7 @@ function fmt(iso: string) {
                 <th class="px-3 py-2">Equipo / jugador</th>
                 <th class="px-3 py-2">Estado</th>
                 <th class="px-3 py-2">Fecha</th>
+                <th v-if="isAdmin" class="px-3 py-2 text-right">Admin</th>
               </tr>
             </thead>
             <tbody>
@@ -281,9 +317,30 @@ function fmt(iso: string) {
                 <td class="px-3 py-2 font-mono text-zinc-200">{{ e.teamId ?? e.playerId ?? '—' }}</td>
                 <td class="px-3 py-2">{{ e.status }}</td>
                 <td class="px-3 py-2 text-zinc-400">{{ fmt(e.createdAt) }}</td>
+                <td v-if="isAdmin" class="px-3 py-2 text-right">
+                  <template v-if="e.status === 'PENDING'">
+                    <button
+                      type="button"
+                      class="mr-1 rounded border border-emerald-800 px-2 py-0.5 text-emerald-300 hover:bg-emerald-950/60 disabled:opacity-40"
+                      :disabled="adminEntryBusy === e.id"
+                      @click="approveEntry(e.id)"
+                    >
+                      OK
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded border border-rose-900 px-2 py-0.5 text-rose-300 hover:bg-rose-950/40 disabled:opacity-40"
+                      :disabled="adminEntryBusy === e.id"
+                      @click="rejectEntry(e.id)"
+                    >
+                      No
+                    </button>
+                  </template>
+                  <span v-else class="text-zinc-600">—</span>
+                </td>
               </tr>
               <tr v-if="entries.length === 0">
-                <td class="px-3 py-6 text-center text-zinc-500" colspan="4">Sin inscripciones aún.</td>
+                <td class="px-3 py-6 text-center text-zinc-500" :colspan="tableColspan">Sin inscripciones aún.</td>
               </tr>
             </tbody>
           </table>

@@ -105,6 +105,22 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     }
   }
 
+  async function approveEntryAdmin(token: string, tournamentId: string, entryId: string): Promise<TournamentEntry> {
+    return (await apiFetch(
+      `/api/admin/tournaments/${encodeURIComponent(tournamentId)}/entries/${encodeURIComponent(entryId)}/approve`,
+      { method: 'POST' },
+      token,
+    )) as TournamentEntry
+  }
+
+  async function rejectEntryAdmin(token: string, tournamentId: string, entryId: string): Promise<TournamentEntry> {
+    return (await apiFetch(
+      `/api/admin/tournaments/${encodeURIComponent(tournamentId)}/entries/${encodeURIComponent(entryId)}/reject`,
+      { method: 'POST' },
+      token,
+    )) as TournamentEntry
+  }
+
   return {
     busy,
     error,
@@ -113,5 +129,7 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     listEntries,
     registerTeam,
     registerMlbSelf,
+    approveEntryAdmin,
+    rejectEntryAdmin,
   }
 })

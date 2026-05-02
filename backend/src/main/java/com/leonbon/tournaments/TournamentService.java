@@ -103,6 +103,40 @@ public class TournamentService {
                 .toList();
     }
 
+    public TournamentEntryResponse approveEntryAsAdmin(String tournamentId, String entryId) {
+        Tournament tournament = tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
+        TournamentEntry entry = tournamentEntryRepository.findById(entryId).orElseThrow(() -> new NotFoundException("entry not found"));
+        if (!Objects.equals(entry.getTournamentId(), tournament.getId())) {
+            throw new NotFoundException("entry not found");
+        }
+        if (entry.getStatus() != TournamentEntryStatus.PENDING) {
+            throw new ConflictException("entry is not pending");
+        }
+
+        Instant now = Instant.now();
+        entry.setStatus(TournamentEntryStatus.APPROVED);
+        entry.setUpdatedAt(now);
+        entry = tournamentEntryRepository.save(entry);
+        return toEntryResponse(entry);
+    }
+
+    public TournamentEntryResponse rejectEntryAsAdmin(String tournamentId, String entryId) {
+        Tournament tournament = tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
+        TournamentEntry entry = tournamentEntryRepository.findById(entryId).orElseThrow(() -> new NotFoundException("entry not found"));
+        if (!Objects.equals(entry.getTournamentId(), tournament.getId())) {
+            throw new NotFoundException("entry not found");
+        }
+        if (entry.getStatus() != TournamentEntryStatus.PENDING) {
+            throw new ConflictException("entry is not pending");
+        }
+
+        Instant now = Instant.now();
+        entry.setStatus(TournamentEntryStatus.REJECTED);
+        entry.setUpdatedAt(now);
+        entry = tournamentEntryRepository.save(entry);
+        return toEntryResponse(entry);
+    }
+
     public TournamentEntryResponse createTeamEntry(JwtPrincipal principal, String tournamentId, CreateTeamTournamentEntryRequest body) {
         User actor = getActiveUser(principal.userId());
         Tournament tournament = tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
