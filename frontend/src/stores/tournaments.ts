@@ -108,6 +108,11 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     }
   }
 
+  /** Admin: hasta 200 torneos, orden por última actualización (útil tras cerrar inscripciones). */
+  async function listTournamentsAdmin(token: string): Promise<Tournament[]> {
+    return (await apiFetch('/api/admin/tournaments', { method: 'GET' }, token)) as Tournament[]
+  }
+
   async function getTournament(tournamentId: string): Promise<Tournament> {
     return (await apiFetch(`/api/tournaments/${encodeURIComponent(tournamentId)}`, { method: 'GET' }, null)) as Tournament
   }
@@ -216,6 +221,7 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     busy,
     error,
     listTournaments,
+    listTournamentsAdmin,
     getTournament,
     listEntries,
     listMatches,

@@ -8,6 +8,8 @@ import com.leonbon.tournaments.dto.TournamentResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import java.util.List;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,6 +25,13 @@ public class AdminTournamentController {
     public AdminTournamentController(TournamentService tournamentService, TournamentBracketService tournamentBracketService) {
         this.tournamentService = tournamentService;
         this.tournamentBracketService = tournamentBracketService;
+    }
+
+    @GetMapping
+    @PreAuthorize("isAuthenticated()")
+    public List<TournamentResponse> listForAdmin(Authentication auth) {
+        JwtPrincipal p = (JwtPrincipal) auth.getPrincipal();
+        return tournamentService.listTournamentsForAdmin(p);
     }
 
     @PostMapping

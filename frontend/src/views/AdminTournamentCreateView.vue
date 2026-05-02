@@ -94,7 +94,10 @@ async function submit() {
 <template>
   <div class="mx-auto max-w-xl space-y-6">
     <div>
-      <RouterLink to="/tournaments" class="text-sm text-zinc-400 hover:text-zinc-200">← Torneos</RouterLink>
+      <div class="flex flex-wrap gap-3 text-sm">
+        <RouterLink to="/tournaments" class="text-zinc-400 hover:text-zinc-200">← Torneos públicos</RouterLink>
+        <RouterLink to="/admin/tournaments" class="text-amber-200/90 hover:text-amber-100">← Admin torneos</RouterLink>
+      </div>
       <h1 class="mt-4 text-2xl font-semibold tracking-tight text-zinc-100">Crear torneo (admin)</h1>
       <p class="mt-2 text-sm text-zinc-400">
         Las fechas se convierten a UTC según la zona horaria de tu navegador.

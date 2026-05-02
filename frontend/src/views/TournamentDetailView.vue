@@ -302,7 +302,10 @@ async function setMatchWinner(matchId: string, winnerEntryId: string) {
 
 <template>
   <div class="space-y-6">
-    <RouterLink to="/tournaments" class="text-sm text-zinc-400 hover:text-zinc-200">← Torneos</RouterLink>
+    <div class="flex flex-wrap items-center gap-3 text-sm">
+      <RouterLink to="/tournaments" class="text-zinc-400 hover:text-zinc-200">← Torneos</RouterLink>
+      <RouterLink v-if="isAdmin" to="/admin/tournaments" class="text-amber-200/90 hover:text-amber-100">Admin torneos</RouterLink>
+    </div>
 
     <p v-if="localError" class="text-sm text-rose-300">{{ localError }}</p>
     <p v-if="successMsg" class="text-sm text-emerald-300">{{ successMsg }}</p>

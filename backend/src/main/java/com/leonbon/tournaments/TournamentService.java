@@ -100,6 +100,11 @@ public class TournamentService {
         return tournamentRepository.findTop80ByOrderByCompetitionStartAtDesc().stream().map(this::toResponse).toList();
     }
 
+    public List<TournamentResponse> listTournamentsForAdmin(JwtPrincipal admin) {
+        assertDbAdmin(admin);
+        return tournamentRepository.findTop200ByOrderByUpdatedAtDesc().stream().map(this::toResponse).toList();
+    }
+
     public TournamentResponse getPublicTournament(String tournamentId) {
         Tournament t = tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
         return toResponse(t);
