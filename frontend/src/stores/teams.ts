@@ -22,6 +22,15 @@ export type TeamCaptainView = TeamPublic & {
   memberUsernames: string[]
 }
 
+export type CaptainTeamSummary = {
+  id: string
+  name: string
+  tag: string
+  regionServer: string
+  logoUrl: string
+  memberUserIds: string[]
+}
+
 export type JoinRequest = {
   id: string
   teamId: string
@@ -70,6 +79,10 @@ export const useTeamsStore = defineStore('teams', () => {
     return (await apiFetch(`/api/teams/${encodeURIComponent(teamId)}`, { method: 'GET' }, token)) as
       | TeamPublic
       | TeamCaptainView
+  }
+
+  async function listMyCaptainTeams(token: string): Promise<CaptainTeamSummary[]> {
+    return (await apiFetch('/api/me/captain-teams', { method: 'GET' }, token)) as CaptainTeamSummary[]
   }
 
   async function requestJoin(token: string, teamId: string): Promise<JoinRequest> {
@@ -129,6 +142,7 @@ export const useTeamsStore = defineStore('teams', () => {
     loadPublicTeams,
     createTeam,
     getTeam,
+    listMyCaptainTeams,
     requestJoin,
     listJoinRequests,
     acceptJoin,

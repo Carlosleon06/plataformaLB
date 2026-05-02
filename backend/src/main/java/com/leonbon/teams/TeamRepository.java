@@ -12,4 +12,6 @@ public interface TeamRepository extends MongoRepository<Team, String> {
     List<Team> findTop20ByStatusOrderByCreatedAtDesc(TeamStatus status);
 
     List<Team> findTop50ByStatusAndNameContainingIgnoreCaseOrderByNameAsc(TeamStatus status, String query);
+
+    List<Team> findByCaptainUserIdAndStatusOrderByNameAsc(String captainUserId, TeamStatus status);
 }

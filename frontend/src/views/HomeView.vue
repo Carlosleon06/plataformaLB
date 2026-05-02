@@ -8,11 +8,18 @@ const auth = useAuthStore()
 <template>
   <div class="space-y-6">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight">MVP1 — Economía + Auth</h1>
+      <h1 class="text-2xl font-semibold tracking-tight">LEON BON — Inicio</h1>
       <p class="mt-2 max-w-2xl text-sm text-zinc-400">
-        Esta pantalla conecta el frontend con el backend: registro/login, balance, reclamo diario e historial de
-        transacciones.
+        Economía (L-Coins), equipos y torneos. El panel de aprobación admin de inscripciones llegará después del MVP3.
       </p>
+      <div class="mt-4 flex flex-wrap gap-3 text-sm">
+        <RouterLink class="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-zinc-100 hover:bg-zinc-900" to="/tournaments">
+          Ver torneos
+        </RouterLink>
+        <RouterLink class="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-zinc-100 hover:bg-zinc-900" to="/teams">
+          Ver equipos
+        </RouterLink>
+      </div>
     </div>
 
     <div v-if="!auth.isAuthed" class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">

@@ -2,6 +2,7 @@ package com.leonbon.teams;
 
 import com.leonbon.auth.JwtPrincipal;
 import com.leonbon.files.LocalLogoStorageService;
+import com.leonbon.teams.dto.CaptainTeamSummaryResponse;
 import com.leonbon.teams.dto.CreateTeamRequest;
 import com.leonbon.teams.dto.JoinRequestResponse;
 import com.leonbon.teams.dto.TeamCaptainViewResponse;
@@ -80,6 +81,19 @@ public class TeamService {
     public List<TeamPublicResponse> listApprovedTeams() {
         return teamRepository.findTop20ByStatusOrderByCreatedAtDesc(TeamStatus.APPROVED).stream()
                 .map(this::toPublic)
+                .toList();
+    }
+
+    public List<CaptainTeamSummaryResponse> listMyApprovedCaptainTeams(JwtPrincipal principal) {
+        return teamRepository.findByCaptainUserIdAndStatusOrderByNameAsc(principal.userId(), TeamStatus.APPROVED).stream()
+                .map(t -> new CaptainTeamSummaryResponse(
+                        t.getId(),
+                        t.getName(),
+                        t.getTag(),
+                        t.getRegionServer(),
+                        t.getLogoUrl(),
+                        t.getMemberUserIds() == null ? List.of() : List.copyOf(t.getMemberUserIds())
+                ))
                 .toList();
     }
 

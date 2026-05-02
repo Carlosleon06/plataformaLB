@@ -19,6 +19,7 @@ onMounted(() => {
         </RouterLink>
 
         <nav class="flex items-center gap-3 text-sm">
+          <RouterLink class="text-zinc-300 hover:text-white" to="/tournaments">Torneos</RouterLink>
           <RouterLink class="text-zinc-300 hover:text-white" to="/teams">Equipos</RouterLink>
           <template v-if="auth.isAuthed">
             <div class="hidden text-zinc-300 sm:block">
