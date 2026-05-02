@@ -370,6 +370,7 @@ public class TournamentService {
                 t.getCompetitionStartAt(),
                 t.getCompetitionEndAt(),
                 t.getStreamUrl(),
+                t.getBracketSize(),
                 t.getCreatedAt()
         );
     }

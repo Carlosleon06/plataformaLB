@@ -12,6 +12,8 @@ public interface TournamentEntryRepository extends MongoRepository<TournamentEnt
 
     List<TournamentEntry> findByTournamentIdOrderByCreatedAtAsc(String tournamentId);
 
+    List<TournamentEntry> findByTournamentIdAndStatusOrderByCreatedAtAsc(String tournamentId, TournamentEntryStatus status);
+
     List<TournamentEntry> findByTeamIdAndStatusIn(String teamId, List<TournamentEntryStatus> statuses);
 
     List<TournamentEntry> findByPlayerIdAndStatusIn(String playerId, List<TournamentEntryStatus> statuses);

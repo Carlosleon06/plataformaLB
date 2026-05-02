@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { coerceBearerToken } from '../lib/api'
+import { LEONBON_TOKEN_STORAGE_KEY, useAuthStore } from '../stores/auth'
 import { useTeamsStore, type CaptainTeamSummary, type TeamCaptainView } from '../stores/teams'
-import { useTournamentsStore, rosterSizeForGame, type Tournament, type TournamentEntry } from '../stores/tournaments'
+import {
+  useTournamentsStore,
+  rosterSizeForGame,
+  type BracketMatch,
+  type Tournament,
+  type TournamentEntry,
+} from '../stores/tournaments'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -14,6 +21,7 @@ const tournamentId = computed(() => String(route.params.tournamentId))
 
 const tournament = ref<Tournament | null>(null)
 const entries = ref<TournamentEntry[]>([])
+const matches = ref<BracketMatch[]>([])
 const captainTeams = ref<CaptainTeamSummary[]>([])
 const selectedTeamId = ref<string>('')
 const rosterDetail = ref<TeamCaptainView | null>(null)
@@ -43,12 +51,35 @@ const isAdmin = computed(() => auth.me?.role === 'ADMIN')
 const tableColspan = computed(() => (isAdmin.value ? 5 : 4))
 
 const adminEntryBusy = ref<string | null>(null)
+const adminBracketBusy = ref(false)
+
+const registrationOpen = computed(() => tournament.value?.lifecycleStatus === 'REGISTRATION_OPEN')
+const canBuildBracket = computed(
+  () =>
+    isAdmin.value &&
+    tournament.value?.format === 'SINGLE_ELIM' &&
+    tournament.value?.lifecycleStatus === 'REGISTRATION_CLOSED' &&
+    !tournament.value?.bracketSize,
+)
+
+function resolveBearer(): string | null {
+  return coerceBearerToken(auth.token) ?? (typeof localStorage !== 'undefined' ? localStorage.getItem(LEONBON_TOKEN_STORAGE_KEY) : null)
+}
+
+function entryShortLabel(entryId: string | null) {
+  if (!entryId) return 'BYE'
+  const row = entries.value.find((x) => x.id === entryId)
+  if (!row) return entryId.slice(-6)
+  if (row.teamId) return `eq:${row.teamId.slice(-6)}`
+  return `jug:${row.playerId?.slice(-6) ?? '?'}`
+}
 
 async function reload() {
   localError.value = null
   const id = tournamentId.value
   tournament.value = await tournaments.getTournament(id)
   entries.value = await tournaments.listEntries(id)
+  matches.value = await tournaments.listMatches(id)
 
   if (auth.isAuthed && auth.token) {
     captainTeams.value = await teams.listMyCaptainTeams(auth.token)
@@ -110,11 +141,12 @@ onMounted(async () => {
 })
 
 async function submitTeam() {
-  if (!auth.token || !tournament.value) return
+  const bearer = resolveBearer()
+  if (!bearer || !tournament.value) return
   localError.value = null
   successMsg.value = null
   try {
-    await tournaments.registerTeam(auth.token, tournament.value.id, {
+    await tournaments.registerTeam(bearer, tournament.value.id, {
       teamId: selectedTeamId.value,
       selectedRosterUserIds: selectedRosterIds.value,
     })
@@ -126,11 +158,12 @@ async function submitTeam() {
 }
 
 async function submitMlb() {
-  if (!auth.token || !tournament.value) return
+  const bearer = resolveBearer()
+  if (!bearer || !tournament.value) return
   localError.value = null
   successMsg.value = null
   try {
-    await tournaments.registerMlbSelf(auth.token, tournament.value.id)
+    await tournaments.registerMlbSelf(bearer, tournament.value.id)
     successMsg.value = 'Inscripción enviada (pendiente de aprobación).'
     await reload()
   } catch (e) {
@@ -143,11 +176,12 @@ function fmt(iso: string) {
 }
 
 async function approveEntry(entryId: string) {
-  if (!auth.token || !tournament.value) return
+  const bearer = resolveBearer()
+  if (!bearer || !tournament.value) return
   localError.value = null
   adminEntryBusy.value = entryId
   try {
-    await tournaments.approveEntryAdmin(auth.token, tournament.value.id, entryId)
+    await tournaments.approveEntryAdmin(bearer, tournament.value.id, entryId)
     await reload()
   } catch (e) {
     localError.value = e instanceof Error ? e.message : 'Error'
@@ -157,16 +191,65 @@ async function approveEntry(entryId: string) {
 }
 
 async function rejectEntry(entryId: string) {
-  if (!auth.token || !tournament.value) return
+  const bearer = resolveBearer()
+  if (!bearer || !tournament.value) return
   localError.value = null
   adminEntryBusy.value = entryId
   try {
-    await tournaments.rejectEntryAdmin(auth.token, tournament.value.id, entryId)
+    await tournaments.rejectEntryAdmin(bearer, tournament.value.id, entryId)
     await reload()
   } catch (e) {
     localError.value = e instanceof Error ? e.message : 'Error'
   } finally {
     adminEntryBusy.value = null
+  }
+}
+
+async function closeRegistration() {
+  const bearer = resolveBearer()
+  if (!bearer || !tournament.value) return
+  localError.value = null
+  adminBracketBusy.value = true
+  try {
+    await tournaments.closeRegistrationAdmin(bearer, tournament.value.id)
+    successMsg.value = 'Inscripción cerrada.'
+    await reload()
+  } catch (e) {
+    localError.value = e instanceof Error ? e.message : 'Error'
+  } finally {
+    adminBracketBusy.value = false
+  }
+}
+
+async function generateBracket() {
+  const bearer = resolveBearer()
+  if (!bearer || !tournament.value) return
+  localError.value = null
+  adminBracketBusy.value = true
+  try {
+    await tournaments.generateBracketAdmin(bearer, tournament.value.id)
+    successMsg.value = 'Bracket generado. Torneo en LIVE.'
+    await reload()
+  } catch (e) {
+    localError.value = e instanceof Error ? e.message : 'Error'
+  } finally {
+    adminBracketBusy.value = false
+  }
+}
+
+async function setMatchWinner(matchId: string, winnerEntryId: string) {
+  const bearer = resolveBearer()
+  if (!bearer || !tournament.value) return
+  localError.value = null
+  adminBracketBusy.value = true
+  try {
+    await tournaments.setMatchWinnerAdmin(bearer, tournament.value.id, matchId, winnerEntryId)
+    successMsg.value = 'Ganador registrado.'
+    await reload()
+  } catch (e) {
+    localError.value = e instanceof Error ? e.message : 'Error'
+  } finally {
+    adminBracketBusy.value = false
   }
 }
 </script>
@@ -194,6 +277,10 @@ async function rejectEntry(entryId: string) {
           <dd class="mt-1 font-mono text-zinc-200">{{ tournament.format }}</dd>
         </div>
         <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 sm:col-span-2">
+          <dt class="text-zinc-500">Estado del torneo</dt>
+          <dd class="mt-1 font-mono text-zinc-200">{{ tournament.lifecycleStatus }}</dd>
+        </div>
+        <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 sm:col-span-2">
           <dt class="text-zinc-500">Inscripción</dt>
           <dd class="mt-1 text-zinc-200">{{ fmt(tournament.registrationStartAt) }} — {{ fmt(tournament.registrationEndAt) }}</dd>
         </div>
@@ -211,8 +298,86 @@ async function rejectEntry(entryId: string) {
         </div>
       </dl>
 
+      <section v-if="isAdmin" class="rounded-xl border border-amber-900/40 bg-amber-950/20 p-5">
+        <h2 class="text-sm font-semibold text-amber-100">Admin — bracket (MVP4)</h2>
+        <p class="mt-1 text-xs text-amber-200/80">
+          Solo <span class="font-mono">SINGLE_ELIM</span>. Cierra inscripciones, aprueba al menos 2 entradas, luego genera el
+          bracket. Marca ganador en cada partida <span class="font-mono">READY</span>.
+        </p>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button
+            v-if="registrationOpen"
+            type="button"
+            class="rounded-md border border-amber-800 bg-amber-950/50 px-3 py-2 text-xs text-amber-100 hover:bg-amber-950/70 disabled:opacity-40"
+            :disabled="adminBracketBusy"
+            @click="closeRegistration()"
+          >
+            Cerrar inscripciones
+          </button>
+          <button
+            v-if="canBuildBracket"
+            type="button"
+            class="rounded-md bg-amber-400 px-3 py-2 text-xs font-medium text-zinc-950 hover:bg-amber-300 disabled:opacity-40"
+            :disabled="adminBracketBusy"
+            @click="generateBracket()"
+          >
+            Generar bracket
+          </button>
+        </div>
+      </section>
+
+      <section v-if="matches.length > 0" class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+        <h2 class="text-sm font-semibold text-zinc-200">Partidas (bracket)</h2>
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full min-w-[28rem] text-left text-xs">
+            <thead class="bg-zinc-950 text-zinc-400">
+              <tr>
+                <th class="px-3 py-2">Ronda</th>
+                <th class="px-3 py-2">#</th>
+                <th class="px-3 py-2">A</th>
+                <th class="px-3 py-2">B</th>
+                <th class="px-3 py-2">Estado</th>
+                <th class="px-3 py-2">Ganador</th>
+                <th v-if="isAdmin" class="px-3 py-2 text-right">Admin</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="m in matches" :key="m.id" class="border-t border-zinc-800 bg-zinc-950/40">
+                <td class="px-3 py-2 font-mono text-zinc-300">{{ m.round }}</td>
+                <td class="px-3 py-2 font-mono text-zinc-400">{{ m.indexInRound }}</td>
+                <td class="px-3 py-2 font-mono text-zinc-200">{{ entryShortLabel(m.entryIdA) }}</td>
+                <td class="px-3 py-2 font-mono text-zinc-200">{{ entryShortLabel(m.entryIdB) }}</td>
+                <td class="px-3 py-2">{{ m.status }}</td>
+                <td class="px-3 py-2 font-mono text-zinc-400">{{ m.winnerEntryId ? entryShortLabel(m.winnerEntryId) : '—' }}</td>
+                <td v-if="isAdmin" class="px-3 py-2 text-right">
+                  <template v-if="m.status === 'READY' && m.entryIdA && m.entryIdB">
+                    <button
+                      type="button"
+                      class="mr-1 rounded border border-emerald-800 px-1.5 py-0.5 text-emerald-300 hover:bg-emerald-950/60 disabled:opacity-40"
+                      :disabled="adminBracketBusy"
+                      @click="setMatchWinner(m.id, m.entryIdA!)"
+                    >
+                      A
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded border border-emerald-800 px-1.5 py-0.5 text-emerald-300 hover:bg-emerald-950/60 disabled:opacity-40"
+                      :disabled="adminBracketBusy"
+                      @click="setMatchWinner(m.id, m.entryIdB!)"
+                    >
+                      B
+                    </button>
+                  </template>
+                  <span v-else class="text-zinc-600">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <!-- Inscripción -->
-      <template v-if="auth.isAuthed">
+      <template v-if="auth.isAuthed && registrationOpen">
         <section class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
           <h2 class="text-sm font-semibold text-zinc-200">Inscripción</h2>
 
@@ -288,6 +453,14 @@ async function rejectEntry(entryId: string) {
           </template>
         </section>
       </template>
+
+      <section v-else-if="auth.isAuthed && tournament" class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+        <h2 class="text-sm font-semibold text-zinc-200">Inscripción</h2>
+        <p class="mt-2 text-sm text-zinc-400">
+          La inscripción no está abierta (estado: <span class="font-mono text-zinc-200">{{ tournament.lifecycleStatus }}</span
+          >).
+        </p>
+      </section>
 
       <section v-else class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
         <h2 class="text-sm font-semibold text-zinc-200">Inscripción</h2>

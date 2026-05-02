@@ -17,5 +17,6 @@ public record TournamentResponse(
         Instant competitionStartAt,
         Instant competitionEndAt,
         String streamUrl,
+        Integer bracketSize,
         Instant createdAt
 ) {}

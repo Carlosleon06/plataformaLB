@@ -14,7 +14,19 @@ export type Tournament = {
   competitionStartAt: string
   competitionEndAt: string
   streamUrl: string | null
+  bracketSize?: number | null
   createdAt: string
+}
+
+export type BracketMatch = {
+  id: string
+  tournamentId: string
+  round: number
+  indexInRound: number
+  entryIdA: string | null
+  entryIdB: string | null
+  winnerEntryId: string | null
+  status: string
 }
 
 export type TournamentEntry = {
@@ -77,6 +89,34 @@ export const useTournamentsStore = defineStore('tournaments', () => {
 
   async function listEntries(tournamentId: string): Promise<TournamentEntry[]> {
     return (await apiFetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/entries`, { method: 'GET' }, null)) as TournamentEntry[]
+  }
+
+  async function listMatches(tournamentId: string): Promise<BracketMatch[]> {
+    return (await apiFetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/matches`, { method: 'GET' }, null)) as BracketMatch[]
+  }
+
+  async function closeRegistrationAdmin(token: string, tournamentId: string): Promise<Tournament> {
+    return (await apiFetch(
+      `/api/admin/tournaments/${encodeURIComponent(tournamentId)}/registration/close`,
+      { method: 'POST' },
+      token,
+    )) as Tournament
+  }
+
+  async function generateBracketAdmin(token: string, tournamentId: string): Promise<Tournament> {
+    return (await apiFetch(
+      `/api/admin/tournaments/${encodeURIComponent(tournamentId)}/bracket/generate`,
+      { method: 'POST' },
+      token,
+    )) as Tournament
+  }
+
+  async function setMatchWinnerAdmin(token: string, tournamentId: string, matchId: string, winnerEntryId: string): Promise<BracketMatch> {
+    return (await apiFetch(
+      `/api/admin/tournaments/${encodeURIComponent(tournamentId)}/matches/${encodeURIComponent(matchId)}/winner`,
+      { method: 'POST', body: JSON.stringify({ winnerEntryId }) },
+      token,
+    )) as BracketMatch
   }
 
   async function registerTeam(
@@ -153,6 +193,10 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     listTournaments,
     getTournament,
     listEntries,
+    listMatches,
+    closeRegistrationAdmin,
+    generateBracketAdmin,
+    setMatchWinnerAdmin,
     registerTeam,
     registerMlbSelf,
     approveEntryAdmin,

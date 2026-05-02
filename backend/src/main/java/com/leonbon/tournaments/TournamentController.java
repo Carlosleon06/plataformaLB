@@ -1,6 +1,7 @@
 package com.leonbon.tournaments;
 
 import com.leonbon.auth.JwtPrincipal;
+import com.leonbon.tournaments.dto.BracketMatchResponse;
 import com.leonbon.tournaments.dto.CreateTeamTournamentEntryRequest;
 import com.leonbon.tournaments.dto.TournamentEntryResponse;
 import com.leonbon.tournaments.dto.TournamentResponse;
@@ -18,9 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/tournaments")
 public class TournamentController {
     private final TournamentService tournamentService;
+    private final TournamentBracketService tournamentBracketService;
 
-    public TournamentController(TournamentService tournamentService) {
+    public TournamentController(TournamentService tournamentService, TournamentBracketService tournamentBracketService) {
         this.tournamentService = tournamentService;
+        this.tournamentBracketService = tournamentBracketService;
     }
 
     @GetMapping
@@ -36,6 +39,11 @@ public class TournamentController {
     @GetMapping("/{tournamentId}/entries")
     public List<TournamentEntryResponse> listEntries(@PathVariable String tournamentId) {
         return tournamentService.listEntries(tournamentId);
+    }
+
+    @GetMapping("/{tournamentId}/matches")
+    public List<BracketMatchResponse> listMatches(@PathVariable String tournamentId) {
+        return tournamentBracketService.listBracketMatches(tournamentId);
     }
 
     @PostMapping("/{tournamentId}/entries/team")

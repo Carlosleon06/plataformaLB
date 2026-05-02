@@ -28,6 +28,9 @@ public class Tournament {
 
     private String streamUrl;
 
+    /** Power-of-two bracket size after generation; null before bracket exists. */
+    private Integer bracketSize;
+
     private Instant createdAt = Instant.now();
     private Instant updatedAt = Instant.now();
 
@@ -117,6 +120,14 @@ public class Tournament {
 
     public void setStreamUrl(String streamUrl) {
         this.streamUrl = streamUrl;
+    }
+
+    public Integer getBracketSize() {
+        return bracketSize;
+    }
+
+    public void setBracketSize(Integer bracketSize) {
+        this.bracketSize = bracketSize;
     }
 
     public Instant getCreatedAt() {
