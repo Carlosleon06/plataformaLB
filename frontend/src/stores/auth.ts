@@ -7,6 +7,7 @@ type MeResponse = {
   username: string
   nickname: string | null
   status: string
+  role: string
   leonCoinsBalance: number
 }
 

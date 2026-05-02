@@ -2,6 +2,7 @@ package com.leonbon.users;
 
 import com.leonbon.auth.JwtPrincipal;
 import com.leonbon.users.dto.MeResponse;
+import com.leonbon.users.UserRole;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,7 +21,15 @@ public class MeController {
     public MeResponse me(Authentication auth) {
         JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
         User user = userRepository.findById(principal.userId()).orElseThrow();
-        return new MeResponse(user.getId(), user.getUsername(), user.getNickname(), user.getStatus(), user.getLeonCoinsBalance());
+        UserRole role = user.getRole() == null ? UserRole.PLAYER : user.getRole();
+        return new MeResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getNickname(),
+                user.getStatus(),
+                role,
+                user.getLeonCoinsBalance()
+        );
     }
 }
 

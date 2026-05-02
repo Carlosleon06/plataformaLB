@@ -1,4 +1,6 @@
 package com.leonbon.auth;
 
-public record JwtPrincipal(String userId, String username) {}
+import java.util.List;
+
+public record JwtPrincipal(String userId, String username, List<String> roles) {}
 

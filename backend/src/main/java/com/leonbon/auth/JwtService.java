@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -26,12 +27,13 @@ public class JwtService {
         this.ttl = Duration.ofMinutes(ttlMinutes);
     }
 
-    public String issueToken(String userId, String username) {
+    public String issueToken(String userId, String username, List<String> roles) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .issuer(issuer)
                 .subject(userId)
                 .claim("username", username)
+                .claim("roles", roles)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(ttl)))
                 .signWith(key)
@@ -48,7 +50,12 @@ public class JwtService {
 
         String userId = claims.getSubject();
         String username = claims.get("username", String.class);
-        return new JwtPrincipal(userId, username);
+        @SuppressWarnings("unchecked")
+        List<String> roles = claims.get("roles", List.class);
+        if (roles == null) {
+            roles = List.of("PLAYER");
+        }
+        return new JwtPrincipal(userId, username, roles);
     }
 }
 

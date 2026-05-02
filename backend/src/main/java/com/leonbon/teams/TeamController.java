@@ -1,0 +1,101 @@
+package com.leonbon.teams;
+
+import com.leonbon.auth.JwtPrincipal;
+import com.leonbon.teams.dto.CreateTeamRequest;
+import com.leonbon.teams.dto.DelegateCaptainRequest;
+import com.leonbon.teams.dto.JoinRequestResponse;
+import com.leonbon.teams.dto.TeamCaptainViewResponse;
+import com.leonbon.teams.dto.TeamPublicResponse;
+import jakarta.validation.Valid;
+import java.util.List;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/teams")
+public class TeamController {
+    private final TeamService teamService;
+
+    public TeamController(TeamService teamService) {
+        this.teamService = teamService;
+    }
+
+    @GetMapping("/public")
+    public List<TeamPublicResponse> listPublic() {
+        return teamService.listApprovedTeams();
+    }
+
+    @GetMapping("/public/search")
+    public List<TeamPublicResponse> searchPublic(@RequestParam("q") String q) {
+        return teamService.searchApprovedTeams(q);
+    }
+
+    @GetMapping("/public/{teamId}")
+    public TeamPublicResponse publicTeam(@PathVariable String teamId) {
+        return teamService.getPublicTeam(teamId);
+    }
+
+    @PostMapping
+    public TeamPublicResponse create(Authentication auth, @Valid @RequestBody CreateTeamRequest req) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.createTeam(principal, req);
+    }
+
+    @GetMapping("/{teamId}")
+    public Object get(Authentication auth, @PathVariable String teamId) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.getTeamForViewer(principal, teamId);
+    }
+
+    @PostMapping("/{teamId}/join-requests")
+    public JoinRequestResponse requestJoin(Authentication auth, @PathVariable String teamId) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.requestJoin(principal, teamId);
+    }
+
+    @GetMapping("/{teamId}/join-requests")
+    public List<JoinRequestResponse> listJoinRequests(Authentication auth, @PathVariable String teamId) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.listPendingJoinRequests(principal, teamId);
+    }
+
+    @PostMapping("/{teamId}/join-requests/{requestId}/accept")
+    public JoinRequestResponse accept(Authentication auth, @PathVariable String teamId, @PathVariable String requestId) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.respondJoinRequest(principal, teamId, requestId, JoinRequestStatus.ACCEPTED);
+    }
+
+    @PostMapping("/{teamId}/join-requests/{requestId}/reject")
+    public JoinRequestResponse reject(Authentication auth, @PathVariable String teamId, @PathVariable String requestId) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.respondJoinRequest(principal, teamId, requestId, JoinRequestStatus.REJECTED);
+    }
+
+    @PostMapping("/{teamId}/captain/delegate")
+    public TeamCaptainViewResponse delegate(
+            Authentication auth,
+            @PathVariable String teamId,
+            @Valid @RequestBody DelegateCaptainRequest body
+    ) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.delegateCaptain(principal, teamId, body.newCaptainUserId());
+    }
+
+    @PostMapping("/{teamId}/coaches/{userId}")
+    public TeamCaptainViewResponse addCoach(Authentication auth, @PathVariable String teamId, @PathVariable String userId) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.addCoach(principal, teamId, userId);
+    }
+
+    @PostMapping("/{teamId}/coaches/{userId}/remove")
+    public TeamCaptainViewResponse removeCoach(Authentication auth, @PathVariable String teamId, @PathVariable String userId) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.removeCoach(principal, teamId, userId);
+    }
+}

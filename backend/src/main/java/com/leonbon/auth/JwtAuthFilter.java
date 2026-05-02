@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,11 +30,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String token = auth.substring("Bearer ".length());
             try {
                 JwtPrincipal principal = jwtService.parse(token);
-                var authentication = new UsernamePasswordAuthenticationToken(
-                        principal,
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_PLAYER"))
-                );
+                List<SimpleGrantedAuthority> authorities = principal.roles().stream()
+                        .map(JwtAuthFilter::toAuthority)
+                        .map(SimpleGrantedAuthority::new)
+                        .collect(Collectors.toList());
+
+                var authentication = new UsernamePasswordAuthenticationToken(principal, null, authorities);
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (Exception ignored) {
@@ -42,6 +44,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private static String toAuthority(String role) {
+        if (role == null) {
+            return "ROLE_PLAYER";
+        }
+        return switch (role) {
+            case "ADMIN" -> "ROLE_ADMIN";
+            default -> "ROLE_PLAYER";
+        };
     }
 }
 

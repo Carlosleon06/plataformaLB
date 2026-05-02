@@ -11,6 +11,13 @@ app:
     # Comma-separated list (Spring @Value can't bind YAML lists via a single placeholder)
     allowedOriginsCsv: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
 
+  bootstrap:
+    # Comma-separated usernames that should be ADMIN on startup (lowercased)
+    adminUsernamesCsv: ${ADMIN_USERNAMES:}
+
+  teams:
+    defaultLogoUrl: ${TEAM_DEFAULT_LOGO_URL:https://placehold.co/512x512/png?text=LB}
+
   security:
     jwt:
       secret: ${JWT_SECRET:dev-only-change-me-dev-only-change-me}

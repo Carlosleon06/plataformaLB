@@ -47,6 +47,10 @@ const auth = useAuthStore()
             <dd class="text-zinc-100">{{ auth.me?.status }}</dd>
           </div>
           <div class="flex justify-between gap-4">
+            <dt class="text-zinc-500">Rol</dt>
+            <dd class="text-zinc-100">{{ auth.me?.role }}</dd>
+          </div>
+          <div class="flex justify-between gap-4">
             <dt class="text-zinc-500">L-Coins</dt>
             <dd class="font-mono text-zinc-100">{{ auth.me?.leonCoinsBalance }}</dd>
           </div>
