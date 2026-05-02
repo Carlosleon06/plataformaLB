@@ -140,6 +140,10 @@ async function submit() {
           </select>
         </div>
       </div>
+      <p class="text-xs text-zinc-500">
+        <span class="font-mono text-zinc-400">DOUBLE_ELIM</span>: el generador soporta hasta 8 huecos en cuadro de ganadores (potencia de 2).
+        <span class="font-mono text-zinc-400">ROUND_ROBIN</span>: todos contra todos; el torneo se marca finalizado cuando todas las partidas tienen ganador.
+      </p>
 
       <div class="grid gap-4 sm:grid-cols-2">
         <div>

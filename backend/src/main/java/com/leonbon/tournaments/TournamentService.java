@@ -97,11 +97,7 @@ public class TournamentService {
     }
 
     public List<TournamentResponse> listPublicTournaments() {
-        return tournamentRepository
-                .findTop50ByLifecycleStatusOrderByCompetitionStartAtAsc(TournamentLifecycleStatus.REGISTRATION_OPEN)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+        return tournamentRepository.findTop80ByOrderByCompetitionStartAtDesc().stream().map(this::toResponse).toList();
     }
 
     public TournamentResponse getPublicTournament(String tournamentId) {

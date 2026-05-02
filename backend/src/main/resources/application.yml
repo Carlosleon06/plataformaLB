@@ -14,6 +14,7 @@ app:
   dev:
     # One-shot: creates 3 approved VALORANT teams (5 players each) + approved tournament entries
     # for the tournament below. Enable with SEED_FRIENDSHIP_BRACKET=true then restart once.
+    # Do not enable in production.
     seedFriendshipBracket: ${SEED_FRIENDSHIP_BRACKET:false}
     seedFriendshipTournamentName: ${SEED_FRIENDSHIP_TOURNAMENT_NAME:Torneo de la amistad}
 

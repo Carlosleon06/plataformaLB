@@ -74,8 +74,8 @@ public class TournamentBracketService {
 
     private TournamentResponse generateSingleElimBracket(Tournament t, List<TournamentEntry> approved) {
         int n = approved.size();
-        int m = nextPow2(n);
-        int totalRounds = roundsForBracketSize(m);
+        int m = BracketMath.nextPow2(n);
+        int totalRounds = BracketMath.roundsForBracketSize(m);
 
         List<String> padded = new ArrayList<>(m);
         for (int i = 0; i < m; i++) {
@@ -162,11 +162,11 @@ public class TournamentBracketService {
      */
     private TournamentResponse generateDoubleElimBracket(Tournament t, List<TournamentEntry> approved) {
         int n = approved.size();
-        int m = nextPow2(n);
+        int m = BracketMath.nextPow2(n);
         if (m > 8) {
             throw new BadRequestException("double elimination is supported for up to 8 bracket slots (power of two) in this version");
         }
-        int wbRounds = roundsForBracketSize(m);
+        int wbRounds = BracketMath.roundsForBracketSize(m);
 
         List<String> padded = new ArrayList<>(m);
         for (int i = 0; i < m; i++) {
@@ -311,7 +311,7 @@ public class TournamentBracketService {
         if (bracketSize == null || bracketSize < 2) {
             throw new ConflictException("bracket is not initialized");
         }
-        int wbRounds = roundsForBracketSize(bracketSize);
+        int wbRounds = BracketMath.roundsForBracketSize(bracketSize);
 
         Instant now = Instant.now();
         String loserId = Objects.equals(winnerEntryId, match.getEntryIdA()) ? match.getEntryIdB() : match.getEntryIdA();
@@ -599,25 +599,6 @@ public class TournamentBracketService {
         } else {
             bm.setStatus(BracketMatchStatus.READY);
         }
-    }
-
-    private static int nextPow2(int n) {
-        if (n <= 1) {
-            return 2;
-        }
-        int p = 1;
-        while (p < n) {
-            p <<= 1;
-        }
-        return p;
-    }
-
-    private static int roundsForBracketSize(int m) {
-        int r = 0;
-        for (int x = m; x > 1; x >>= 1) {
-            r++;
-        }
-        return r;
     }
 
     private void assertDbAdmin(JwtPrincipal principal) {
