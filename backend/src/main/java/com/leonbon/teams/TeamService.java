@@ -3,6 +3,7 @@ package com.leonbon.teams;
 import com.leonbon.auth.JwtPrincipal;
 import com.leonbon.files.LocalLogoStorageService;
 import com.leonbon.teams.dto.CaptainTeamSummaryResponse;
+import com.leonbon.teams.dto.PendingTeamAdminRow;
 import com.leonbon.teams.dto.CreateTeamRequest;
 import com.leonbon.teams.dto.JoinRequestResponse;
 import com.leonbon.teams.dto.TeamCaptainViewResponse;
@@ -97,6 +98,25 @@ public class TeamService {
                 .toList();
     }
 
+    public List<PendingTeamAdminRow> listPendingTeamsForAdmin() {
+        return teamRepository.findTop100ByStatusOrderByCreatedAtAsc(TeamStatus.PENDING).stream()
+                .map(t -> {
+                    User cap = userRepository.findById(t.getCaptainUserId()).orElseThrow();
+                    int members = t.getMemberUserIds() == null ? 0 : t.getMemberUserIds().size();
+                    return new PendingTeamAdminRow(
+                            t.getId(),
+                            t.getName(),
+                            t.getTag(),
+                            t.getStatus(),
+                            t.getRegionServer(),
+                            cap.getUsername(),
+                            members,
+                            t.getCreatedAt()
+                    );
+                })
+                .toList();
+    }
+
     public List<TeamPublicResponse> searchApprovedTeams(String query) {
         String q = query == null ? "" : query.trim();
         if (q.length() < 2) {
@@ -117,6 +137,9 @@ public class TeamService {
 
     public Object getTeamForViewer(JwtPrincipal principal, String teamId) {
         Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
+        if (isAdmin(principal)) {
+            return toCaptainView(team);
+        }
         if (team.getStatus() == TeamStatus.APPROVED) {
             boolean isMember = team.getMemberUserIds() != null && team.getMemberUserIds().contains(principal.userId());
             if (isMember) {
@@ -438,6 +461,10 @@ public class TeamService {
         if (!Objects.equals(team.getCaptainUserId(), userId)) {
             throw new ForbiddenException("captain only");
         }
+    }
+
+    private static boolean isAdmin(JwtPrincipal principal) {
+        return principal.roles() != null && principal.roles().contains("ADMIN");
     }
 
     private User getActiveUser(String userId) {

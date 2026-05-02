@@ -1,6 +1,9 @@
 package com.leonbon.teams;
 
+import com.leonbon.teams.dto.PendingTeamAdminRow;
+import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,6 +16,12 @@ public class AdminTeamController {
 
     public AdminTeamController(TeamService teamService) {
         this.teamService = teamService;
+    }
+
+    @GetMapping("/pending")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<PendingTeamAdminRow> listPending() {
+        return teamService.listPendingTeamsForAdmin();
     }
 
     @PostMapping("/{teamId}/approve")

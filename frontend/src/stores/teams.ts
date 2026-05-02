@@ -31,6 +31,17 @@ export type CaptainTeamSummary = {
   memberUserIds: string[]
 }
 
+export type PendingTeamAdminRow = {
+  id: string
+  name: string
+  tag: string
+  status: string
+  regionServer: string
+  captainUsername: string
+  memberCount: number
+  createdAt: string
+}
+
 export type JoinRequest = {
   id: string
   teamId: string
@@ -113,6 +124,14 @@ export const useTeamsStore = defineStore('teams', () => {
     await apiFetch(`/api/admin/teams/${encodeURIComponent(teamId)}/approve`, { method: 'POST' }, token)
   }
 
+  async function rejectTeamAdmin(token: string, teamId: string): Promise<void> {
+    await apiFetch(`/api/admin/teams/${encodeURIComponent(teamId)}/reject`, { method: 'POST' }, token)
+  }
+
+  async function listPendingTeamsAdmin(token: string): Promise<PendingTeamAdminRow[]> {
+    return (await apiFetch('/api/admin/teams/pending', { method: 'GET' }, token)) as PendingTeamAdminRow[]
+  }
+
   async function resetLogoAdmin(token: string, teamId: string): Promise<void> {
     await apiFetch(`/api/admin/teams/${encodeURIComponent(teamId)}/logo/reset`, { method: 'POST' }, token)
   }
@@ -148,6 +167,8 @@ export const useTeamsStore = defineStore('teams', () => {
     acceptJoin,
     rejectJoin,
     approveTeamAdmin,
+    rejectTeamAdmin,
+    listPendingTeamsAdmin,
     resetLogoAdmin,
     uploadTeamLogo,
     resetTeamLogoCaptain,

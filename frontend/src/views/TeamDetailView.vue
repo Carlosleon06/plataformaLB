@@ -14,6 +14,7 @@ const localError = ref<string | null>(null)
 
 const teamId = computed(() => String(route.params.teamId))
 
+/** Vista con roster (capitán, o admin moderando cualquier estado). */
 const isCaptainView = computed(() => {
   const t = team.value
   return Boolean(auth.isAuthed && t && 'captainUserId' in t)
@@ -68,6 +69,17 @@ async function approveAdmin() {
   localError.value = null
   try {
     await teams.approveTeamAdmin(auth.token, teamId.value)
+    await reload()
+  } catch (e) {
+    localError.value = e instanceof Error ? e.message : 'Error'
+  }
+}
+
+async function rejectAdmin() {
+  if (!auth.token) return
+  localError.value = null
+  try {
+    await teams.rejectTeamAdmin(auth.token, teamId.value)
     await reload()
   } catch (e) {
     localError.value = e instanceof Error ? e.message : 'Error'
@@ -199,6 +211,15 @@ async function disbandTeam() {
           @click="approveAdmin()"
         >
           Aprobar (admin)
+        </button>
+
+        <button
+          v-if="isAdmin && team.status === 'PENDING'"
+          type="button"
+          class="rounded-md border border-rose-800 bg-rose-950/50 px-3 py-2 text-sm text-rose-100 hover:bg-rose-950/80"
+          @click="rejectAdmin()"
+        >
+          Rechazar (admin)
         </button>
 
         <button
