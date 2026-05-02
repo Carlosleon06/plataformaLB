@@ -11,6 +11,12 @@ spring:
       uri: ${MONGODB_URI:mongodb://localhost:27017/leonbon}
 
 app:
+  dev:
+    # One-shot: creates 3 approved VALORANT teams (5 players each) + approved tournament entries
+    # for the tournament below. Enable with SEED_FRIENDSHIP_BRACKET=true then restart once.
+    seedFriendshipBracket: ${SEED_FRIENDSHIP_BRACKET:false}
+    seedFriendshipTournamentName: ${SEED_FRIENDSHIP_TOURNAMENT_NAME:Torneo de la amistad}
+
   cors:
     # Comma-separated list (Spring @Value can't bind YAML lists via a single placeholder)
     allowedOriginsCsv: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
