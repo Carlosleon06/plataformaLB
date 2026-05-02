@@ -1,0 +1,351 @@
+package com.leonbon.tournaments;
+
+import com.leonbon.auth.ConflictException;
+import com.leonbon.auth.JwtPrincipal;
+import com.leonbon.teams.Team;
+import com.leonbon.teams.TeamRepository;
+import com.leonbon.teams.TeamStatus;
+import com.leonbon.tournaments.dto.CreateTeamTournamentEntryRequest;
+import com.leonbon.tournaments.dto.CreateTournamentRequest;
+import com.leonbon.tournaments.dto.TournamentEntryResponse;
+import com.leonbon.tournaments.dto.TournamentResponse;
+import com.leonbon.users.User;
+import com.leonbon.users.UserRepository;
+import com.leonbon.users.UserStatus;
+import com.leonbon.web.BadRequestException;
+import com.leonbon.web.ForbiddenException;
+import com.leonbon.web.NotFoundException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+@Service
+public class TournamentService {
+    private static final List<TournamentEntryStatus> ACTIVE_ENTRY_STATUSES =
+            List.of(TournamentEntryStatus.PENDING, TournamentEntryStatus.APPROVED);
+
+    private final TournamentRepository tournamentRepository;
+    private final TournamentEntryRepository tournamentEntryRepository;
+    private final TeamRepository teamRepository;
+    private final UserRepository userRepository;
+
+    private final int minRosterValorant;
+    private final int minRosterFortnite;
+    private final int minRosterMlb;
+
+    public TournamentService(
+            TournamentRepository tournamentRepository,
+            TournamentEntryRepository tournamentEntryRepository,
+            TeamRepository teamRepository,
+            UserRepository userRepository,
+            @Value("${app.tournaments.minRoster.VALORANT}") int minRosterValorant,
+            @Value("${app.tournaments.minRoster.FORTNITE}") int minRosterFortnite,
+            @Value("${app.tournaments.minRoster.MLB}") int minRosterMlb
+    ) {
+        this.tournamentRepository = tournamentRepository;
+        this.tournamentEntryRepository = tournamentEntryRepository;
+        this.teamRepository = teamRepository;
+        this.userRepository = userRepository;
+        this.minRosterValorant = minRosterValorant;
+        this.minRosterFortnite = minRosterFortnite;
+        this.minRosterMlb = minRosterMlb;
+    }
+
+    public TournamentResponse createTournamentAsAdmin(CreateTournamentRequest req) {
+        validateTournamentSchedule(
+                req.getRegistrationStartAt(),
+                req.getRegistrationEndAt(),
+                req.getCompetitionStartAt(),
+                req.getCompetitionEndAt()
+        );
+
+        Instant now = Instant.now();
+        Tournament t = new Tournament();
+        t.setName(req.getName().trim());
+        t.setOrganizers(req.getOrganizers().trim());
+        t.setGame(req.getGame());
+        t.setFormat(req.getFormat());
+        t.setLifecycleStatus(TournamentLifecycleStatus.REGISTRATION_OPEN);
+        t.setRegistrationStartAt(req.getRegistrationStartAt());
+        t.setRegistrationEndAt(req.getRegistrationEndAt());
+        t.setCompetitionStartAt(req.getCompetitionStartAt());
+        t.setCompetitionEndAt(req.getCompetitionEndAt());
+        t.setStreamUrl(trimToNull(req.getStreamUrl()));
+        t.setCreatedAt(now);
+        t.setUpdatedAt(now);
+
+        t = tournamentRepository.save(t);
+        return toResponse(t);
+    }
+
+    public List<TournamentResponse> listPublicTournaments() {
+        return tournamentRepository
+                .findTop50ByLifecycleStatusOrderByCompetitionStartAtAsc(TournamentLifecycleStatus.REGISTRATION_OPEN)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    public TournamentResponse getPublicTournament(String tournamentId) {
+        Tournament t = tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
+        return toResponse(t);
+    }
+
+    public List<TournamentEntryResponse> listEntries(String tournamentId) {
+        tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
+        return tournamentEntryRepository.findByTournamentIdOrderByCreatedAtAsc(tournamentId).stream()
+                .map(this::toEntryResponse)
+                .toList();
+    }
+
+    public TournamentEntryResponse createTeamEntry(JwtPrincipal principal, String tournamentId, CreateTeamTournamentEntryRequest body) {
+        User actor = getActiveUser(principal.userId());
+        Tournament tournament = tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
+
+        if (tournament.getGame() == GameTitle.MLB) {
+            throw new BadRequestException("MLB tournaments use individual signup");
+        }
+
+        assertRegistrationOpen(tournament, Instant.now());
+
+        Team team = teamRepository.findById(body.getTeamId()).orElseThrow(() -> new NotFoundException("team not found"));
+        if (team.getStatus() != TeamStatus.APPROVED) {
+            throw new ConflictException("team is not approved");
+        }
+        if (!Objects.equals(team.getCaptainUserId(), actor.getId())) {
+            throw new ForbiddenException("captain only");
+        }
+
+        tournamentEntryRepository
+                .findByTournamentIdAndTeamId(tournament.getId(), team.getId())
+                .ifPresent(e -> {
+                    throw new ConflictException("team already registered for this tournament");
+                });
+
+        LinkedHashSet<String> roster = new LinkedHashSet<>(body.getSelectedRosterUserIds());
+        if (roster.isEmpty()) {
+            throw new BadRequestException("roster is required");
+        }
+
+        int required = requiredRosterSize(tournament.getGame());
+        if (roster.size() != required) {
+            throw new BadRequestException("roster must select exactly " + required + " players for " + tournament.getGame());
+        }
+
+        List<String> members = team.getMemberUserIds() == null ? List.of() : team.getMemberUserIds();
+        for (String userId : roster) {
+            if (userId == null || userId.isBlank()) {
+                throw new BadRequestException("invalid roster user id");
+            }
+            if (!members.contains(userId)) {
+                throw new BadRequestException("roster must be a subset of team members");
+            }
+        }
+
+        for (String userId : roster) {
+            assertNoScheduleConflictForUser(userId, tournament, null);
+        }
+        assertNoScheduleConflictForTeam(team.getId(), tournament, null);
+
+        Instant now = Instant.now();
+        TournamentEntry entry = new TournamentEntry();
+        entry.setTournamentId(tournament.getId());
+        entry.setType(TournamentEntryType.TEAM);
+        entry.setTeamId(team.getId());
+        entry.setPlayerId(null);
+        entry.setStatus(TournamentEntryStatus.PENDING);
+        entry.setSelectedRosterUserIds(new ArrayList<>(roster));
+        entry.setCreatedAt(now);
+        entry.setUpdatedAt(now);
+
+        entry = tournamentEntryRepository.save(entry);
+        return toEntryResponse(entry);
+    }
+
+    public TournamentEntryResponse createMlbPlayerEntry(JwtPrincipal principal, String tournamentId) {
+        User actor = getActiveUser(principal.userId());
+        Tournament tournament = tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
+
+        if (tournament.getGame() != GameTitle.MLB) {
+            throw new BadRequestException("only MLB tournaments support individual signup");
+        }
+
+        assertRegistrationOpen(tournament, Instant.now());
+
+        tournamentEntryRepository
+                .findByTournamentIdAndPlayerId(tournament.getId(), actor.getId())
+                .ifPresent(e -> {
+                    throw new ConflictException("already registered for this tournament");
+                });
+
+        int required = minRosterMlb;
+        if (required != 1) {
+            // MVP expects 1v1 individual signup; keep config-driven but fail loudly if misconfigured.
+            throw new BadRequestException("invalid MLB roster configuration");
+        }
+
+        assertNoScheduleConflictForUser(actor.getId(), tournament, null);
+
+        Instant now = Instant.now();
+        TournamentEntry entry = new TournamentEntry();
+        entry.setTournamentId(tournament.getId());
+        entry.setType(TournamentEntryType.PLAYER);
+        entry.setTeamId(null);
+        entry.setPlayerId(actor.getId());
+        entry.setStatus(TournamentEntryStatus.PENDING);
+        entry.setSelectedRosterUserIds(new ArrayList<>());
+        entry.setCreatedAt(now);
+        entry.setUpdatedAt(now);
+
+        entry = tournamentEntryRepository.save(entry);
+        return toEntryResponse(entry);
+    }
+
+    private void assertRegistrationOpen(Tournament tournament, Instant now) {
+        if (tournament.getLifecycleStatus() != TournamentLifecycleStatus.REGISTRATION_OPEN) {
+            throw new ConflictException("tournament registration is not open");
+        }
+        if (now.isBefore(tournament.getRegistrationStartAt()) || now.isAfter(tournament.getRegistrationEndAt())) {
+            throw new ConflictException("tournament is not in registration window");
+        }
+    }
+
+    private void assertNoScheduleConflictForTeam(String teamId, Tournament newTournament, String ignoreEntryId) {
+        List<TournamentEntry> entries = tournamentEntryRepository.findByTeamIdAndStatusIn(teamId, ACTIVE_ENTRY_STATUSES);
+        assertNoScheduleConflictFromEntries(entries, newTournament, ignoreEntryId, "team has a conflicting tournament registration");
+    }
+
+    private void assertNoScheduleConflictForUser(String userId, Tournament newTournament, String ignoreEntryId) {
+        List<TournamentEntry> byPlayer = tournamentEntryRepository.findByPlayerIdAndStatusIn(userId, ACTIVE_ENTRY_STATUSES);
+        List<TournamentEntry> byRoster = tournamentEntryRepository.findByRosterUserIdAndStatusIn(userId, ACTIVE_ENTRY_STATUSES);
+
+        List<TournamentEntry> combined = new ArrayList<>(byPlayer.size() + byRoster.size());
+        combined.addAll(byPlayer);
+        combined.addAll(byRoster);
+
+        assertNoScheduleConflictFromEntries(combined, newTournament, ignoreEntryId, "player has a conflicting tournament registration");
+    }
+
+    private void assertNoScheduleConflictFromEntries(
+            List<TournamentEntry> entries,
+            Tournament newTournament,
+            String ignoreEntryId,
+            String message
+    ) {
+        Set<String> tournamentIds = new LinkedHashSet<>();
+        for (TournamentEntry e : entries) {
+            if (ignoreEntryId != null && Objects.equals(e.getId(), ignoreEntryId)) {
+                continue;
+            }
+            if (e.getTournamentId() == null) {
+                continue;
+            }
+            if (Objects.equals(e.getTournamentId(), newTournament.getId())) {
+                continue;
+            }
+            tournamentIds.add(e.getTournamentId());
+        }
+
+        if (tournamentIds.isEmpty()) {
+            return;
+        }
+
+        List<Tournament> others = tournamentRepository.findAllById(tournamentIds);
+        for (Tournament other : others) {
+            if (intervalsOverlap(
+                    newTournament.getCompetitionStartAt(),
+                    newTournament.getCompetitionEndAt(),
+                    other.getCompetitionStartAt(),
+                    other.getCompetitionEndAt()
+            )) {
+                throw new ConflictException(message);
+            }
+        }
+    }
+
+    private static boolean intervalsOverlap(Instant aStart, Instant aEnd, Instant bStart, Instant bEnd) {
+        return aStart.isBefore(bEnd) && bStart.isBefore(aEnd);
+    }
+
+    private static void validateTournamentSchedule(
+            Instant registrationStartAt,
+            Instant registrationEndAt,
+            Instant competitionStartAt,
+            Instant competitionEndAt
+    ) {
+        if (registrationStartAt == null
+                || registrationEndAt == null
+                || competitionStartAt == null
+                || competitionEndAt == null) {
+            throw new BadRequestException("schedule is required");
+        }
+        if (!registrationStartAt.isBefore(registrationEndAt)) {
+            throw new BadRequestException("registrationStartAt must be before registrationEndAt");
+        }
+        if (!registrationEndAt.isBefore(competitionStartAt)) {
+            throw new BadRequestException("registration must end before competition starts");
+        }
+        if (!competitionStartAt.isBefore(competitionEndAt)) {
+            throw new BadRequestException("competitionStartAt must be before competitionEndAt");
+        }
+    }
+
+    private int requiredRosterSize(GameTitle game) {
+        return switch (game) {
+            case VALORANT -> minRosterValorant;
+            case FORTNITE -> minRosterFortnite;
+            case MLB -> minRosterMlb;
+        };
+    }
+
+    private User getActiveUser(String userId) {
+        User u = userRepository.findById(userId).orElseThrow(() -> new NotFoundException("user not found"));
+        if (u.getStatus() != UserStatus.ACTIVE) {
+            throw new ConflictException("user is not active");
+        }
+        return u;
+    }
+
+    private TournamentResponse toResponse(Tournament t) {
+        return new TournamentResponse(
+                t.getId(),
+                t.getName(),
+                t.getOrganizers(),
+                t.getGame(),
+                t.getFormat(),
+                t.getLifecycleStatus(),
+                t.getRegistrationStartAt(),
+                t.getRegistrationEndAt(),
+                t.getCompetitionStartAt(),
+                t.getCompetitionEndAt(),
+                t.getStreamUrl(),
+                t.getCreatedAt()
+        );
+    }
+
+    private TournamentEntryResponse toEntryResponse(TournamentEntry e) {
+        return new TournamentEntryResponse(
+                e.getId(),
+                e.getTournamentId(),
+                e.getType(),
+                e.getTeamId(),
+                e.getPlayerId(),
+                e.getStatus(),
+                e.getSelectedRosterUserIds() == null ? List.of() : List.copyOf(e.getSelectedRosterUserIds()),
+                e.getCreatedAt()
+        );
+    }
+
+    private static String trimToNull(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
+    }
+}

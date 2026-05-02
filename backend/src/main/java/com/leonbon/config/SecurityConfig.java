@@ -38,6 +38,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/teams/public", "/api/teams/public/search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/teams/public/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/tournaments", "/api/tournaments/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .httpBasic(basic -> basic.disable())

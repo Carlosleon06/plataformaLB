@@ -22,6 +22,12 @@ app:
   teams:
     defaultLogoUrl: ${TEAM_DEFAULT_LOGO_URL:https://placehold.co/512x512/png?text=LB}
 
+  tournaments:
+    minRoster:
+      VALORANT: ${TOURNAMENT_MIN_ROSTER_VALORANT:5}
+      FORTNITE: ${TOURNAMENT_MIN_ROSTER_FORTNITE:4}
+      MLB: ${TOURNAMENT_MIN_ROSTER_MLB:1}
+
   files:
     # Local filesystem storage for dev (MVP). For production, swap to S3/Cloudinary.
     uploadDir: ${FILE_UPLOAD_DIR:./data/uploads}
