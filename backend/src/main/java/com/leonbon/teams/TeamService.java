@@ -1,6 +1,7 @@
 package com.leonbon.teams;
 
 import com.leonbon.auth.JwtPrincipal;
+import com.leonbon.files.LocalLogoStorageService;
 import com.leonbon.teams.dto.CreateTeamRequest;
 import com.leonbon.teams.dto.JoinRequestResponse;
 import com.leonbon.teams.dto.TeamCaptainViewResponse;
@@ -20,6 +21,7 @@ import java.util.Objects;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class TeamService {
@@ -27,17 +29,20 @@ public class TeamService {
     private final TeamJoinRequestRepository joinRequestRepository;
     private final UserRepository userRepository;
     private final String defaultLogoUrl;
+    private final LocalLogoStorageService logoStorageService;
 
     public TeamService(
             TeamRepository teamRepository,
             TeamJoinRequestRepository joinRequestRepository,
             UserRepository userRepository,
-            @Value("${app.teams.defaultLogoUrl}") String defaultLogoUrl
+            @Value("${app.teams.defaultLogoUrl}") String defaultLogoUrl,
+            LocalLogoStorageService logoStorageService
     ) {
         this.teamRepository = teamRepository;
         this.joinRequestRepository = joinRequestRepository;
         this.userRepository = userRepository;
         this.defaultLogoUrl = defaultLogoUrl;
+        this.logoStorageService = logoStorageService;
     }
 
     public TeamPublicResponse createTeam(JwtPrincipal principal, CreateTeamRequest req) {
@@ -118,6 +123,7 @@ public class TeamService {
     public JoinRequestResponse requestJoin(JwtPrincipal principal, String teamId) {
         User actor = getActiveUser(principal.userId());
         Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
+        assertTeamJoinable(team);
         if (team.getStatus() != TeamStatus.APPROVED) {
             throw new ConflictException("team is not accepting join requests");
         }
@@ -149,6 +155,9 @@ public class TeamService {
     public List<JoinRequestResponse> listPendingJoinRequests(JwtPrincipal principal, String teamId) {
         Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
         assertCaptain(team, principal.userId());
+        if (team.getStatus() != TeamStatus.APPROVED) {
+            return List.of();
+        }
 
         return joinRequestRepository.findByTeamIdAndStatusOrderByCreatedAtAsc(team.getId(), JoinRequestStatus.PENDING).stream()
                 .map(r -> {
@@ -164,6 +173,7 @@ public class TeamService {
         }
 
         Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
+        assertTeamRosterMutable(team);
         assertCaptain(team, principal.userId());
 
         TeamJoinRequest req = joinRequestRepository.findById(requestId).orElseThrow(() -> new NotFoundException("request not found"));
@@ -197,6 +207,7 @@ public class TeamService {
 
     public TeamCaptainViewResponse delegateCaptain(JwtPrincipal principal, String teamId, String newCaptainUserId) {
         Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
+        assertTeamRosterMutable(team);
         assertCaptain(team, principal.userId());
 
         if (!team.getMemberUserIds().contains(newCaptainUserId)) {
@@ -220,12 +231,12 @@ public class TeamService {
         teamRepository.save(team);
 
         team = teamRepository.findById(teamId).orElseThrow();
-        enforceCoachLimit(team);
         return toCaptainView(team);
     }
 
     public TeamCaptainViewResponse addCoach(JwtPrincipal principal, String teamId, String coachUserId) {
         Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
+        assertTeamRosterMutable(team);
         assertCaptain(team, principal.userId());
         if (team.getStatus() != TeamStatus.APPROVED) {
             throw new ConflictException("team is not approved yet");
@@ -252,6 +263,7 @@ public class TeamService {
 
     public TeamCaptainViewResponse removeCoach(JwtPrincipal principal, String teamId, String coachUserId) {
         Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
+        assertTeamRosterMutable(team);
         assertCaptain(team, principal.userId());
 
         List<String> coaches = new ArrayList<>(team.getCoachUserIds());
@@ -289,6 +301,123 @@ public class TeamService {
         team.setStatus(TeamStatus.SUSPENDED);
         team.setUpdatedAt(Instant.now());
         teamRepository.save(team);
+    }
+
+    public TeamCaptainViewResponse uploadLogo(JwtPrincipal principal, String teamId, MultipartFile file) {
+        Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
+        assertTeamLogoMutable(team);
+        assertCaptain(team, principal.userId());
+
+        String url = logoStorageService.storeLogo(file);
+        Instant now = Instant.now();
+        team.setLogoUrl(url);
+        team.setUpdatedAt(now);
+        teamRepository.save(team);
+
+        return toCaptainView(teamRepository.findById(teamId).orElseThrow());
+    }
+
+    public TeamCaptainViewResponse resetLogoCaptain(JwtPrincipal principal, String teamId) {
+        Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
+        assertTeamLogoMutable(team);
+        assertCaptain(team, principal.userId());
+
+        Instant now = Instant.now();
+        team.setLogoUrl(defaultLogoUrl);
+        team.setUpdatedAt(now);
+        teamRepository.save(team);
+
+        return toCaptainView(teamRepository.findById(teamId).orElseThrow());
+    }
+
+    public void resetLogoAdmin(String teamId) {
+        Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
+        Instant now = Instant.now();
+        team.setLogoUrl(defaultLogoUrl);
+        team.setUpdatedAt(now);
+        teamRepository.save(team);
+    }
+
+    public TeamCaptainViewResponse leaveTeam(JwtPrincipal principal, String teamId) {
+        User actor = getActiveUser(principal.userId());
+        Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
+        assertTeamRosterMutable(team);
+
+        if (Objects.equals(team.getCaptainUserId(), actor.getId())) {
+            int members = team.getMemberUserIds() == null ? 0 : team.getMemberUserIds().size();
+            if (members > 1) {
+                throw new ConflictException("captain must delegate before leaving");
+            }
+            return disbandTeam(team, Instant.now());
+        }
+
+        LinkedHashSet<String> members = new LinkedHashSet<>(team.getMemberUserIds());
+        if (!members.remove(actor.getId())) {
+            throw new ConflictException("not a team member");
+        }
+
+        List<String> coaches = new ArrayList<>(team.getCoachUserIds());
+        coaches.remove(actor.getId());
+
+        team.setMemberUserIds(new ArrayList<>(members));
+        team.setCoachUserIds(coaches);
+        team.setUpdatedAt(Instant.now());
+        teamRepository.save(team);
+
+        return toCaptainView(teamRepository.findById(teamId).orElseThrow());
+    }
+
+    public TeamCaptainViewResponse disbandTeamIfSoleCaptain(JwtPrincipal principal, String teamId) {
+        Team team = teamRepository.findById(teamId).orElseThrow(() -> new NotFoundException("team not found"));
+        assertTeamRosterMutable(team);
+        assertCaptain(team, principal.userId());
+
+        int members = team.getMemberUserIds() == null ? 0 : team.getMemberUserIds().size();
+        if (members != 1) {
+            throw new ConflictException("team can only be disbanded when captain is the sole member");
+        }
+
+        return disbandTeam(team, Instant.now());
+    }
+
+    private TeamCaptainViewResponse disbandTeam(Team team, Instant now) {
+        team.setStatus(TeamStatus.DISBANDED);
+        team.setUpdatedAt(now);
+        teamRepository.save(team);
+        rejectAllPendingJoinRequests(team.getId(), now);
+        return toCaptainView(teamRepository.findById(team.getId()).orElseThrow());
+    }
+
+    private void rejectAllPendingJoinRequests(String teamId, Instant now) {
+        List<TeamJoinRequest> pending = joinRequestRepository.findByTeamIdAndStatusOrderByCreatedAtAsc(teamId, JoinRequestStatus.PENDING);
+        for (TeamJoinRequest r : pending) {
+            r.setStatus(JoinRequestStatus.REJECTED);
+            r.setUpdatedAt(now);
+            joinRequestRepository.save(r);
+        }
+    }
+
+    private void assertTeamJoinable(Team team) {
+        if (team.getStatus() == TeamStatus.DISBANDED) {
+            throw new ConflictException("team is disbanded");
+        }
+        if (team.getStatus() == TeamStatus.SUSPENDED) {
+            throw new ConflictException("team is suspended");
+        }
+    }
+
+    private void assertTeamRosterMutable(Team team) {
+        assertTeamJoinable(team);
+        if (team.getStatus() == TeamStatus.REJECTED) {
+            throw new ConflictException("team is rejected");
+        }
+    }
+
+    private void assertTeamLogoMutable(Team team) {
+        assertTeamJoinable(team);
+        if (!(team.getStatus() == TeamStatus.PENDING || team.getStatus() == TeamStatus.APPROVED)) {
+            throw new ConflictException("logo cannot be changed for this team status");
+        }
     }
 
     private void assertCaptain(Team team, String userId) {
@@ -361,9 +490,4 @@ public class TeamService {
         );
     }
 
-    private void enforceCoachLimit(Team team) {
-        if (team.getCoachUserIds() != null && team.getCoachUserIds().size() > 3) {
-            throw new BadRequestException("max 3 coaches");
-        }
-    }
 }

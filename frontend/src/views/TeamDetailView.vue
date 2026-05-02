@@ -36,6 +36,14 @@ const isMember = computed(() => {
 
 const isAdmin = computed(() => auth.me?.role === 'ADMIN')
 
+const soleCaptain = computed(() => {
+  const t = team.value
+  if (!t || !isCaptain.value) return false
+  return t.memberCount === 1
+})
+
+const logoFile = ref<HTMLInputElement | null>(null)
+
 async function reload() {
   localError.value = null
   team.value = (await teams.getTeam(auth.token, teamId.value)) as TeamPublic | TeamCaptainView
@@ -98,6 +106,65 @@ async function reject(reqId: string) {
     localError.value = e instanceof Error ? e.message : 'Error'
   }
 }
+
+async function resetLogoAdmin() {
+  if (!auth.token) return
+  localError.value = null
+  try {
+    await teams.resetLogoAdmin(auth.token, teamId.value)
+    await reload()
+  } catch (e) {
+    localError.value = e instanceof Error ? e.message : 'Error'
+  }
+}
+
+async function uploadLogo() {
+  if (!auth.token) return
+  const input = logoFile.value
+  const file = input?.files?.[0]
+  if (!file) return
+  localError.value = null
+  try {
+    await teams.uploadTeamLogo(auth.token, teamId.value, file)
+    if (input) input.value = ''
+    await reload()
+  } catch (e) {
+    localError.value = e instanceof Error ? e.message : 'Error'
+  }
+}
+
+async function resetLogoCaptain() {
+  if (!auth.token) return
+  localError.value = null
+  try {
+    await teams.resetTeamLogoCaptain(auth.token, teamId.value)
+    await reload()
+  } catch (e) {
+    localError.value = e instanceof Error ? e.message : 'Error'
+  }
+}
+
+async function leaveTeam() {
+  if (!auth.token) return
+  localError.value = null
+  try {
+    await teams.leaveTeam(auth.token, teamId.value)
+    await reload()
+  } catch (e) {
+    localError.value = e instanceof Error ? e.message : 'Error'
+  }
+}
+
+async function disbandTeam() {
+  if (!auth.token) return
+  localError.value = null
+  try {
+    await teams.disbandTeam(auth.token, teamId.value)
+    await reload()
+  } catch (e) {
+    localError.value = e instanceof Error ? e.message : 'Error'
+  }
+}
 </script>
 
 <template>
@@ -135,6 +202,15 @@ async function reject(reqId: string) {
         </button>
 
         <button
+          v-if="isAdmin"
+          type="button"
+          class="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-900"
+          @click="resetLogoAdmin()"
+        >
+          Reset logo (admin)
+        </button>
+
+        <button
           v-if="auth.isAuthed && team.status === 'APPROVED' && !isMember && !isCaptain"
           type="button"
           class="rounded-md bg-white px-3 py-2 text-sm font-medium text-zinc-950 hover:bg-zinc-200"
@@ -142,10 +218,56 @@ async function reject(reqId: string) {
         >
           Solicitar unirse
         </button>
+
+        <button
+          v-if="auth.isAuthed && isMember && !isCaptain && team.status !== 'DISBANDED'"
+          type="button"
+          class="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-900"
+          @click="leaveTeam()"
+        >
+          Salir del equipo
+        </button>
+
+        <button
+          v-if="auth.isAuthed && isCaptain && soleCaptain && team.status !== 'DISBANDED'"
+          type="button"
+          class="rounded-md border border-rose-900/40 bg-rose-950/40 px-3 py-2 text-sm text-rose-100 hover:bg-rose-950/60"
+          @click="disbandTeam()"
+        >
+          Disolver equipo
+        </button>
       </div>
     </div>
 
     <p v-if="localError" class="text-sm text-rose-300">{{ localError }}</p>
+
+    <section class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+      <h2 class="text-sm font-semibold text-zinc-200">Logo</h2>
+      <div class="mt-4 flex flex-wrap items-center gap-4">
+        <img :src="team.logoUrl" alt="logo" class="h-16 w-16 rounded-md border border-zinc-800 object-cover" />
+
+        <div v-if="isCaptain && (team.status === 'PENDING' || team.status === 'APPROVED')" class="flex flex-col gap-2">
+          <input ref="logoFile" type="file" accept=".jpg,.jpeg,.png,.webp" class="text-xs text-zinc-300" />
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="rounded-md bg-white px-3 py-2 text-xs font-medium text-zinc-950 hover:bg-zinc-200"
+              @click="uploadLogo()"
+            >
+              Subir logo
+            </button>
+            <button
+              type="button"
+              class="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-100 hover:bg-zinc-900"
+              @click="resetLogoCaptain()"
+            >
+              Reset logo
+            </button>
+          </div>
+          <p class="text-xs text-zinc-500">Máx 2MB. Solo JPG/PNG/WEBP.</p>
+        </div>
+      </div>
+    </section>
 
     <section v-if="isCaptainView" class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
       <h2 class="text-sm font-semibold text-zinc-200">Miembros</h2>

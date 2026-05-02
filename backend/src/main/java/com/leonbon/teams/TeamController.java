@@ -8,6 +8,7 @@ import com.leonbon.teams.dto.TeamCaptainViewResponse;
 import com.leonbon.teams.dto.TeamPublicResponse;
 import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,7 +16,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/teams")
@@ -97,5 +100,29 @@ public class TeamController {
     public TeamCaptainViewResponse removeCoach(Authentication auth, @PathVariable String teamId, @PathVariable String userId) {
         JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
         return teamService.removeCoach(principal, teamId, userId);
+    }
+
+    @PostMapping(value = "/{teamId}/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public TeamCaptainViewResponse uploadLogo(Authentication auth, @PathVariable String teamId, @RequestPart("file") MultipartFile file) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.uploadLogo(principal, teamId, file);
+    }
+
+    @PostMapping("/{teamId}/logo/reset")
+    public TeamCaptainViewResponse resetLogoCaptain(Authentication auth, @PathVariable String teamId) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.resetLogoCaptain(principal, teamId);
+    }
+
+    @PostMapping("/{teamId}/leave")
+    public TeamCaptainViewResponse leave(Authentication auth, @PathVariable String teamId) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.leaveTeam(principal, teamId);
+    }
+
+    @PostMapping("/{teamId}/disband")
+    public TeamCaptainViewResponse disband(Authentication auth, @PathVariable String teamId) {
+        JwtPrincipal principal = (JwtPrincipal) auth.getPrincipal();
+        return teamService.disbandTeamIfSoleCaptain(principal, teamId);
     }
 }

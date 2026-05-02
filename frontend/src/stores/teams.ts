@@ -100,6 +100,28 @@ export const useTeamsStore = defineStore('teams', () => {
     await apiFetch(`/api/admin/teams/${encodeURIComponent(teamId)}/approve`, { method: 'POST' }, token)
   }
 
+  async function resetLogoAdmin(token: string, teamId: string): Promise<void> {
+    await apiFetch(`/api/admin/teams/${encodeURIComponent(teamId)}/logo/reset`, { method: 'POST' }, token)
+  }
+
+  async function uploadTeamLogo(token: string, teamId: string, file: File): Promise<TeamCaptainView> {
+    const fd = new FormData()
+    fd.append('file', file)
+    return (await apiFetch(`/api/teams/${encodeURIComponent(teamId)}/logo`, { method: 'POST', body: fd }, token)) as TeamCaptainView
+  }
+
+  async function resetTeamLogoCaptain(token: string, teamId: string): Promise<TeamCaptainView> {
+    return (await apiFetch(`/api/teams/${encodeURIComponent(teamId)}/logo/reset`, { method: 'POST' }, token)) as TeamCaptainView
+  }
+
+  async function leaveTeam(token: string, teamId: string): Promise<TeamCaptainView> {
+    return (await apiFetch(`/api/teams/${encodeURIComponent(teamId)}/leave`, { method: 'POST' }, token)) as TeamCaptainView
+  }
+
+  async function disbandTeam(token: string, teamId: string): Promise<TeamCaptainView> {
+    return (await apiFetch(`/api/teams/${encodeURIComponent(teamId)}/disband`, { method: 'POST' }, token)) as TeamCaptainView
+  }
+
   return {
     publicTeams,
     busy,
@@ -112,5 +134,10 @@ export const useTeamsStore = defineStore('teams', () => {
     acceptJoin,
     rejectJoin,
     approveTeamAdmin,
+    resetLogoAdmin,
+    uploadTeamLogo,
+    resetTeamLogoCaptain,
+    leaveTeam,
+    disbandTeam,
   }
 })

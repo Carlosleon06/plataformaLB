@@ -32,4 +32,10 @@ public class AdminTeamController {
     public void suspend(@PathVariable String teamId) {
         teamService.suspendTeamAsAdmin(teamId);
     }
+
+    @PostMapping("/{teamId}/logo/reset")
+    @PreAuthorize("hasRole('ADMIN')")
+    public void resetLogo(@PathVariable String teamId) {
+        teamService.resetLogoAdmin(teamId);
+    }
 }
