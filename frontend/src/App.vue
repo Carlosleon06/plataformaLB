@@ -21,13 +21,10 @@ onMounted(() => {
         <nav class="flex items-center gap-3 text-sm">
           <RouterLink class="text-zinc-300 hover:text-white" to="/tournaments">Torneos</RouterLink>
           <RouterLink class="text-zinc-300 hover:text-white" to="/teams">Equipos</RouterLink>
-          <RouterLink
-            v-if="auth.me?.role === 'ADMIN'"
-            class="text-amber-200/90 hover:text-amber-100"
-            to="/admin/teams"
-          >
-            Admin equipos
-          </RouterLink>
+          <template v-if="auth.me?.role === 'ADMIN'">
+            <RouterLink class="text-amber-200/90 hover:text-amber-100" to="/admin/teams">Admin equipos</RouterLink>
+            <RouterLink class="text-amber-200/90 hover:text-amber-100" to="/admin/tournaments/create">Crear torneo</RouterLink>
+          </template>
           <template v-if="auth.isAuthed">
             <div class="hidden text-zinc-300 sm:block">
               <span class="text-zinc-500">L-Coins</span>

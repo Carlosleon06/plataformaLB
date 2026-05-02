@@ -28,6 +28,18 @@ export type TournamentEntry = {
   createdAt: string
 }
 
+export type CreateTournamentPayload = {
+  name: string
+  organizers: string
+  game: 'VALORANT' | 'FORTNITE' | 'MLB'
+  format: 'SINGLE_ELIM' | 'DOUBLE_ELIM' | 'ROUND_ROBIN'
+  registrationStartAt: string
+  registrationEndAt: string
+  competitionStartAt: string
+  competitionEndAt: string
+  streamUrl?: string | null
+}
+
 /** Defaults match backend `application.yml` (dev). */
 export function rosterSizeForGame(game: string): number {
   switch (game) {
@@ -121,6 +133,20 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     )) as TournamentEntry
   }
 
+  async function createTournamentAdmin(token: string, body: CreateTournamentPayload): Promise<Tournament> {
+    busy.value = true
+    error.value = null
+    try {
+      const payload = { ...body, streamUrl: body.streamUrl?.trim() || null }
+      return (await apiFetch('/api/admin/tournaments', { method: 'POST', body: JSON.stringify(payload) }, token)) as Tournament
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Unknown error'
+      throw e
+    } finally {
+      busy.value = false
+    }
+  }
+
   return {
     busy,
     error,
@@ -131,5 +157,6 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     registerMlbSelf,
     approveEntryAdmin,
     rejectEntryAdmin,
+    createTournamentAdmin,
   }
 })

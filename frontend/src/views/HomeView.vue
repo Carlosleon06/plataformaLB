@@ -10,8 +10,8 @@ const auth = useAuthStore()
     <div>
       <h1 class="text-2xl font-semibold tracking-tight">LEON BON — Inicio</h1>
       <p class="mt-2 max-w-2xl text-sm text-zinc-400">
-        Economía (L-Coins), equipos y torneos. Si eres admin, usa «Admin equipos» para aprobar equipos nuevos y el detalle
-        de torneo para inscripciones.
+        Economía (L-Coins), equipos y torneos. Admin: «Admin equipos», «Crear torneo» y en el detalle del torneo las
+        inscripciones.
       </p>
       <div class="mt-4 flex flex-wrap gap-3 text-sm">
         <RouterLink class="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-zinc-100 hover:bg-zinc-900" to="/tournaments">
@@ -26,6 +26,13 @@ const auth = useAuthStore()
           to="/admin/teams"
         >
           Admin equipos
+        </RouterLink>
+        <RouterLink
+          v-if="auth.me?.role === 'ADMIN'"
+          class="rounded-md border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-amber-100 hover:bg-amber-950/50"
+          to="/admin/tournaments/create"
+        >
+          Crear torneo
         </RouterLink>
       </div>
     </div>

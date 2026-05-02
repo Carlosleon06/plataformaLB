@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 import { useTournamentsStore, type Tournament } from '../stores/tournaments'
 
+const auth = useAuthStore()
 const tournaments = useTournamentsStore()
 const items = ref<Tournament[]>([])
 const localError = ref<string | null>(null)
@@ -23,11 +25,20 @@ function fmt(iso: string) {
 
 <template>
   <div class="space-y-6">
-    <div>
-      <h1 class="text-2xl font-semibold tracking-tight">Torneos</h1>
-      <p class="mt-2 max-w-2xl text-sm text-zinc-400">
-        Torneos con inscripción abierta. Abre uno para ver fechas e inscribirte.
-      </p>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Torneos</h1>
+        <p class="mt-2 max-w-2xl text-sm text-zinc-400">
+          Torneos con inscripción abierta. Abre uno para ver fechas e inscribirte.
+        </p>
+      </div>
+      <RouterLink
+        v-if="auth.me?.role === 'ADMIN'"
+        class="shrink-0 rounded-md border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-100 hover:bg-amber-950/50"
+        to="/admin/tournaments/create"
+      >
+        Crear torneo
+      </RouterLink>
     </div>
 
     <p v-if="localError" class="text-sm text-rose-300">{{ localError }}</p>
