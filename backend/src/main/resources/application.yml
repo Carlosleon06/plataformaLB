@@ -7,6 +7,10 @@ spring:
       uri: ${MONGODB_URI:mongodb://localhost:27017/leonbon}
 
 app:
+  cors:
+    allowedOrigins:
+      - ${CORS_ORIGIN_1:http://localhost:5173}
+
   security:
     jwt:
       secret: ${JWT_SECRET:dev-only-change-me-dev-only-change-me}

@@ -13,8 +13,8 @@ Thumbs.db
 Desktop.ini
 
 # Env / secrets
-.env
-.env.*
+.env.local
+.env.*.local
 **/*secret*
 
 # Node / frontend (when created)
