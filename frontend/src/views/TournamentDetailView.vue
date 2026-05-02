@@ -67,12 +67,26 @@ function resolveBearer(): string | null {
   return coerceBearerToken(auth.token) ?? (typeof localStorage !== 'undefined' ? localStorage.getItem(LEONBON_TOKEN_STORAGE_KEY) : null)
 }
 
-function entryShortLabel(entryId: string | null) {
-  if (!entryId) return 'BYE'
+/** Nombre legible para una entrada del torneo (id de TournamentEntry). */
+function entryDisplayForBracket(entryId: string | null) {
+  if (!entryId) return '—'
   const row = entries.value.find((x) => x.id === entryId)
-  if (!row) return entryId.slice(-6)
-  if (row.teamId) return `eq:${row.teamId.slice(-6)}`
-  return `jug:${row.playerId?.slice(-6) ?? '?'}`
+  if (!row) return `…${entryId.slice(-6)}`
+  return entryParticipantLabel(row)
+}
+
+/**
+ * Celda A/B del bracket: nombre del equipo/jugador; si aún no hay entrada asignada y el partido espera
+ * rondas previas, "—"; si es hueco de bye real en una partida ya armada, "BYE".
+ */
+function bracketSlotLabel(entryId: string | null, match: BracketMatch) {
+  if (entryId) {
+    const row = entries.value.find((x) => x.id === entryId)
+    if (!row) return `…${entryId.slice(-6)}`
+    return entryParticipantLabel(row)
+  }
+  if (match.status === 'WAITING') return '—'
+  return 'BYE'
 }
 
 async function reload() {
@@ -365,10 +379,10 @@ async function setMatchWinner(matchId: string, winnerEntryId: string) {
               <tr v-for="m in matches" :key="m.id" class="border-t border-zinc-800 bg-zinc-950/40">
                 <td class="px-3 py-2 font-mono text-zinc-300">{{ m.round }}</td>
                 <td class="px-3 py-2 font-mono text-zinc-400">{{ m.indexInRound }}</td>
-                <td class="px-3 py-2 font-mono text-zinc-200">{{ entryShortLabel(m.entryIdA) }}</td>
-                <td class="px-3 py-2 font-mono text-zinc-200">{{ entryShortLabel(m.entryIdB) }}</td>
+                <td class="px-3 py-2 text-zinc-200">{{ bracketSlotLabel(m.entryIdA, m) }}</td>
+                <td class="px-3 py-2 text-zinc-200">{{ bracketSlotLabel(m.entryIdB, m) }}</td>
                 <td class="px-3 py-2">{{ m.status }}</td>
-                <td class="px-3 py-2 font-mono text-zinc-400">{{ m.winnerEntryId ? entryShortLabel(m.winnerEntryId) : '—' }}</td>
+                <td class="px-3 py-2 text-zinc-400">{{ m.winnerEntryId ? entryDisplayForBracket(m.winnerEntryId) : '—' }}</td>
                 <td v-if="isAdmin" class="px-3 py-2 text-right">
                   <template v-if="m.status === 'READY' && m.entryIdA && m.entryIdB">
                     <button
