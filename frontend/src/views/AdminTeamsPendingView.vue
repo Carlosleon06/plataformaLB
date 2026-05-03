@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { coerceBearerToken } from '../lib/api'
+import { formatDateTimeShort } from '../lib/format'
 import { LEONBON_TOKEN_STORAGE_KEY, useAuthStore } from '../stores/auth'
 import { useTeamsStore, type PendingTeamAdminRow } from '../stores/teams'
 
@@ -33,7 +34,7 @@ onMounted(async () => {
 })
 
 function fmt(iso: string) {
-  return new Date(iso).toLocaleString()
+  return formatDateTimeShort(iso)
 }
 
 async function approve(teamId: string) {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { formatDateTimeShort } from '../lib/format'
 import { useAuthStore } from '../stores/auth'
 import { useTournamentsStore, type Tournament } from '../stores/tournaments'
 
@@ -29,7 +30,7 @@ onMounted(async () => {
 })
 
 function fmt(iso: string) {
-  return new Date(iso).toLocaleString()
+  return formatDateTimeShort(iso)
 }
 
 function lifecycleLabel(s: string): string {
@@ -67,17 +68,13 @@ function lifecycleBadgeClass(s: string): string {
   <div class="space-y-6">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Torneos</h1>
+        <h1 class="lb-page-title">Torneos</h1>
         <p class="mt-2 max-w-2xl text-sm text-zinc-400">
           Lista pública (hasta 80 torneos): inscripción abierta, en curso o ya finalizados. Usa el filtro para ver solo los que
           aceptan inscripciones.
         </p>
       </div>
-      <RouterLink
-        v-if="auth.me?.role === 'ADMIN'"
-        class="shrink-0 rounded-md border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-100 hover:bg-amber-950/50"
-        to="/admin/tournaments/create"
-      >
+      <RouterLink v-if="auth.me?.role === 'ADMIN'" class="lb-btn-primary shrink-0 !text-xs" to="/admin/tournaments/create">
         Crear torneo
       </RouterLink>
     </div>
@@ -85,11 +82,11 @@ function lifecycleBadgeClass(s: string): string {
     <div v-if="items.length > 0" class="flex flex-wrap gap-2">
       <button
         type="button"
-        class="rounded-md border px-3 py-1.5 text-xs"
+        class="rounded-lg border px-3 py-1.5 text-xs font-medium transition"
         :class="
           filter === 'all'
-            ? 'border-zinc-500 bg-zinc-800 text-zinc-100'
-            : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-600'
+            ? 'border-violet-500/50 bg-violet-950/40 text-violet-50 shadow-[0_0_20px_-6px_rgb(139,92,246,0.45)]'
+            : 'lb-btn-ghost border-zinc-800 !bg-zinc-950/50 !py-1.5'
         "
         @click="filter = 'all'"
       >
@@ -97,11 +94,11 @@ function lifecycleBadgeClass(s: string): string {
       </button>
       <button
         type="button"
-        class="rounded-md border px-3 py-1.5 text-xs"
+        class="rounded-lg border px-3 py-1.5 text-xs font-medium transition"
         :class="
           filter === 'open'
-            ? 'border-zinc-500 bg-zinc-800 text-zinc-100'
-            : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-600'
+            ? 'border-emerald-500/45 bg-emerald-950/35 text-emerald-50 shadow-[0_0_18px_-6px_rgb(52,211,153,0.35)]'
+            : 'lb-btn-ghost border-zinc-800 !bg-zinc-950/50 !py-1.5'
         "
         @click="filter = 'open'"
       >
@@ -111,20 +108,17 @@ function lifecycleBadgeClass(s: string): string {
 
     <p v-if="localError" class="text-sm text-rose-300">{{ localError }}</p>
 
-    <div v-if="items.length === 0 && !localError" class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 text-sm text-zinc-400">
+    <div v-if="items.length === 0 && !localError" class="lb-card p-6 text-sm text-zinc-400">
       Aún no hay torneos publicados.
     </div>
 
-    <div
-      v-else-if="filteredItems.length === 0 && !localError"
-      class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-6 text-sm text-zinc-400"
-    >
+    <div v-else-if="filteredItems.length === 0 && !localError" class="lb-card p-6 text-sm text-zinc-400">
       Ningún torneo coincide con este filtro.
     </div>
 
-    <div v-else-if="filteredItems.length > 0" class="overflow-hidden rounded-xl border border-zinc-800">
+    <div v-else-if="filteredItems.length > 0" class="lb-table-shell !p-0">
       <table class="w-full text-left text-sm">
-        <thead class="bg-zinc-950 text-xs text-zinc-400">
+        <thead class="border-b border-zinc-800/80 bg-zinc-950/95 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
           <tr>
             <th class="px-4 py-2">Nombre</th>
             <th class="px-4 py-2">Estado</th>
@@ -135,7 +129,11 @@ function lifecycleBadgeClass(s: string): string {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="t in filteredItems" :key="t.id" class="border-t border-zinc-800 bg-zinc-950/40">
+          <tr
+            v-for="t in filteredItems"
+            :key="t.id"
+            class="border-t border-zinc-800/60 bg-zinc-950/30 transition hover:bg-zinc-900/50"
+          >
             <td class="px-4 py-3 text-zinc-100">{{ t.name }}</td>
             <td class="px-4 py-3">
               <span
@@ -152,10 +150,10 @@ function lifecycleBadgeClass(s: string): string {
             </td>
             <td class="px-4 py-3 text-right">
               <RouterLink
-                class="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-900"
+                class="rounded-lg border border-zinc-600/70 bg-zinc-900/40 px-2.5 py-1 text-xs font-medium text-violet-100 transition hover:border-violet-400/35 hover:bg-violet-950/35"
                 :to="`/tournaments/${t.id}`"
               >
-                Ver
+                Arena →
               </RouterLink>
             </td>
           </tr>

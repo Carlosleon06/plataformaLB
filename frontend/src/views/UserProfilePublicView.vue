@@ -140,7 +140,7 @@ function rankEntries(): string[] {
       </section>
 
       <p class="max-w-2xl text-sm text-zinc-400">
-        Competencia y estadísticas cargadas dentro de Leon Bon (bracket oficial + estadísticas de partidos que el administrador cargó).
+        Torneos y estadísticas cargadas en Leon Bon (bracket oficial + números por partida que registra el administrador).
       </p>
 
       <section v-for="g in snapshot.games" :key="g.game" class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
@@ -205,7 +205,7 @@ function rankEntries(): string[] {
               <dd class="font-mono text-zinc-100">{{ fmt(g.fortniteTop10Matches ?? null) }}</dd>
             </div>
             <div v-if="g.fortniteDominantModePlayed" class="sm:col-span-2">
-              <dt class="text-zinc-600">Modo más registrado</dt>
+              <dt class="text-zinc-600">Modo con más partidas</dt>
               <dd class="font-mono text-zinc-100">{{ g.fortniteDominantModePlayed }}</dd>
             </div>
           </dl>

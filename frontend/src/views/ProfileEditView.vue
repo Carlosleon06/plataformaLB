@@ -96,8 +96,8 @@ async function submit() {
     <div>
       <h1 class="text-xl font-semibold">Editar perfil</h1>
       <p class="mt-2 text-sm text-zinc-400">
-        Identidad opcional visible en tu ficha pública cuando lo permitís. Email no aparece públicamente pero ayuda como contacto para
-        el staff.
+        Identidad opcional visible en tu ficha pública cuando lo permites. Tu correo no se muestra en público, pero ayuda al staff como
+        contacto.
       </p>
     </div>
 
@@ -116,7 +116,7 @@ async function submit() {
       </label>
 
       <label class="block text-sm">
-        <span class="text-zinc-400">Nombre legal (solo si querés cargarlo)</span>
+        <span class="text-zinc-400">Nombre legal (opcional)</span>
         <input v-model="fullName" class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600" />
       </label>
       <label class="flex items-center gap-2 text-sm text-zinc-300">

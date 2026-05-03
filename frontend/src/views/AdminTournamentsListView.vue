@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { coerceBearerToken } from '../lib/api'
+import { formatDateTimeShort } from '../lib/format'
 import { LEONBON_TOKEN_STORAGE_KEY, useAuthStore } from '../stores/auth'
 import { useTournamentsStore, type Tournament } from '../stores/tournaments'
 
@@ -50,7 +51,7 @@ onMounted(async () => {
 })
 
 function fmt(iso: string) {
-  return new Date(iso).toLocaleString()
+  return formatDateTimeShort(iso)
 }
 
 function lifecycleLabel(s: string): string {

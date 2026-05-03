@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Client, IMessage, StompSubscription } from '@stomp/stompjs'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { coerceBearerToken } from '../lib/api'
+import { formatDateTimeShort } from '../lib/format'
 import { createSockJsStompClient } from '../lib/stompSockJs'
 import { LEONBON_TOKEN_STORAGE_KEY, useAuthStore } from '../stores/auth'
 import { useBetsStore, type Bet } from '../stores/bets'
@@ -843,7 +844,7 @@ async function submitMlb() {
 }
 
 function fmt(iso: string) {
-  return new Date(iso).toLocaleString()
+  return formatDateTimeShort(iso)
 }
 
 function ordinalSportsRank(rank: number): string {
@@ -995,7 +996,7 @@ async function setMatchWinner(matchId: string, winnerEntryId: string) {
         <div class="min-w-0 flex-1">
           <div class="text-[11px] font-bold uppercase tracking-wider text-sky-300/95">Arena en vivo — match day</div>
           <p class="mt-1 max-w-xl text-sm text-sky-100/90">
-            Enlace destacado para seguir esta competencia. Abrilo en nueva pestaña mientras navegás el bracket aquí mismo.
+            Link destacado para ver la competencia. Ábrelo en otra pestaña mientras ves el bracket aquí.
           </p>
           <div class="mt-2 truncate font-mono text-xs text-zinc-500">{{ tournament.streamUrl }}</div>
         </div>

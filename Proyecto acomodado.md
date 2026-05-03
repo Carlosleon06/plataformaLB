@@ -4,107 +4,102 @@
 
 ### **Jugador**
 
-- **Identidad:** Nombre real, Correo electrónico, ID numérico, Nickname.
-    
-- **Perfil:** País, Redes sociales y Plataformas de stream.
-    
-- **Competencia:** Juego principal, Rango por juego, Juegos activos, Historial de equipos.
-    
-- **Economía:** Balance de **Leon Coins** (Bono inicial: **5,000 L-Coins**). Los jugadores recibirán 100 L coins diarios.
-    
-- **Estado:** Activo o Castigado (Sanciones).
-    
+- **Identidad:** Nombre de usuario único, número de jugador LEON (incremental y legible), nickname, correo electrónico opcional.
+
+- **Perfil:** País, nombre real con control de visibilidad, redes sociales (Twitch, YouTube, X, Instagram, Discord).
+
+- **Competencia:** Juego preferido, rango o división por juego (`VALORANT`, `FORTNITE`, `MLB`), historial de equipos y trofeos.
+
+- **Economía:** Balance de **L-Coins** (bono de bienvenida: **5,000 LC**; reclamo diario: **100 LC**).
+
+- **Estado:** `ACTIVE` o `SUSPENDED` (sanción admin).
+
+---
 
 ### **Equipos**
 
-- **General:** Nombre del equipo, Logo, Servidor/Región de actividad.
-    
-- **Liderazgo:** Capitán y Coach (Jugador con rol asignado).
-    
-- **Roster:** Lista única de jugadores (sin distinción de titulares/suplentes).
-    
-- **Comercial:** Sponsors del equipo y Plataformas de stream asociadas.
-    
-- **Palmarés:** Historial de torneos y Trofeos ganados.
-    
-- **Stats Colectivas:** Winrate y KDA general del equipo.
-    
+- **General:** Nombre, tag (siglas), logo, región/servidor de actividad.
+
+- **Liderazgo:** Capitán con poderes de gestión y coaches opcionales con rol diferenciado.
+
+- **Roster:** Lista única de miembros (sin distinción titular/suplente).
+
+- **Comercial:** Sponsors (líneas de texto libre) y URL de stream oficial del equipo.
+
+- **Palmarés:** Trofeos y torneos ganados visibles en el perfil público del equipo.
+
+- **Stats colectivas:** Stats de bracket (winrate, etc.) calculadas desde el historial de partidas.
 
 ---
 
 ## Gestión de Torneos
 
-- **Configuración:** Organizadores, Juego, Formato del evento.
-    
-- **Logística:** Fechas de inscripción, Fecha de competencia, Número de participantes.
-    
-- **Reglas:** Reglamento oficial y Requisitos de elegibilidad (Verificación manual por Admin).
-    
-- **Premios:** Bolsa económica distribuida por posición.
-    
-- **Media:** Link a la plataforma de Stream donde se transmite el torneo.
-    
+- **Configuración:** Nombre, organizadores, juego, formato del bracket.
+
+- **Logística:** Ventanas de inscripción y competencia, tope de participantes aprobados.
+
+- **Reglas:** Reglamento oficial y notas de elegibilidad (verificación manual por admin).
+
+- **Premios:** Tabla de L-Coins por posición (cuántos puestos y cuánto por cada uno), notas de premio en texto libre.
+
+- **Media:** Link al stream donde se transmite el torneo.
 
 ### **Motor de Brackets**
 
-- **Formatos:** Eliminación simple, doble o Round Robin.
-    
-- **Generación:** Automática al cierre de inscripciones.
-    
-- **Control:** Registro manual de resultados por el Admin (Selección rápida entre los dos enfrentados).
-    
+- **Formatos:** Eliminación simple, eliminación doble o Round Robin.
+
+- **Generación:** El admin la ejecuta manualmente al cerrar inscripciones; el tamaño se ajusta a potencia de dos donde aplique.
+
+- **Control:** El admin registra al ganador de cada llave y puede cargar estadísticas de esa partida; el bracket avanza solo.
 
 ---
 
 ## Estadísticas Especializadas
 
-- **Global:** Ranking Top 10 por juego.
-    
-- **Visualización:** Seccionado por juego en el perfil del jugador.
-    
-- **Métricas por Juego:**
-    
+- **Ranking:** Tablas públicas por juego a través del módulo de plataforma.
+
+- **Perfil público:** Snapshot cross-game del jugador: rango por juego, equipo actual, trofeos, redes.
+
+- **Métricas por juego que el admin puede registrar:**
+
     - **Valorant:** KDA, Winrate, % de Headshots.
-        
+
     - **Fortnite:** KD, Winrate, Victorias totales, Top 10, Modo más jugado.
-        
-    - **MLB The Show 2026 (1v1):**
-        
+
+    - **MLB The Show (1v1):**
+
         - _Bateo:_ AVG, Home Runs.
-            
         - _Pitcheo:_ Innings lanzados, ERA, Carreras permitidas.
-            
 
 ---
 
-## Sistema de Apuestas (LEON Coins)
+## Sistema de Apuestas (L-Coins)
 
-- **Modelo:** Formato Twitch (Parimutuel dinámico).
-    
-- **Dinámica de Cuotas:**
-    
-    - **Favorito:** (Más monedas apostadas) → Multiplicador bajo.
-        
-    - **Underdog:** (Menos monedas apostadas) → Multiplicador alto.
-        
-- **Automatización de Partida:**
-    
-    - **Apertura:** Automática al llegar la hora programada del match.
-        
-    - **Cierre (Lock):** Automático a los 5 minutos de haber iniciado.
-        
-    - **Interfaz:** Visualización del multiplicador y ganancia estimada en tiempo real.
-        
-- **Liquidación:** El pago se ejecuta automáticamente una vez que el Admin confirma al ganador en el bracket.
+- **Modelo:** Parimutuel dinámico (mismo principio que las apuestas en stream tipo Twitch).
 
-### stack tecnológico
+- **Dinámica de cuotas:**
 
-- **Backend:** Spring Boot 3.x (Java).
-    
-- **Base de Datos:** MongoDB.
-    
-- **Frontend:** **Vue.js 3** (con Pinia para manejar las Leon Coins).
-    
-- **Estilo:** **Tailwind CSS** (funciona igual de bien con Vue).
-    
-- **Tiempo Real:** **Pusher** o **WebSockets** (para que las apuestas se actualicen en vivo).
+    - **Favorito** (más monedas apostadas) → retorno bajo.
+    - **Underdog** (menos monedas apostadas) → retorno alto.
+
+- **Control de ventana:**
+
+    - **Apertura:** Manual por el admin al iniciar el partido.
+    - **Cierre (lock):** Automático a los 5 minutos de haber abierto, o manual si el admin lo cierra antes.
+    - **Interfaz:** Retorno implícito por moneda actualizado en tiempo real vía WebSocket.
+
+- **Liquidación:** Automática en cuanto el admin confirma al ganador en el bracket; si nadie apostó al bando ganador, todos reciben reembolso.
+
+---
+
+## Stack tecnológico
+
+- **Backend:** Spring Boot **3.5** (Java 17).
+
+- **Base de datos:** MongoDB.
+
+- **Frontend:** Vue.js 3 + Pinia + TypeScript + Tailwind CSS.
+
+- **Tiempo real:** WebSocket/STOMP con SockJS (apuestas en vivo y notificaciones por usuario).
+
+- **Archivos:** Disco local del servidor en este MVP; diseñado para migrar a S3/Cloudinary cambiando solo la capa de almacenamiento.

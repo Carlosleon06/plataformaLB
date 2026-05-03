@@ -30,10 +30,10 @@ watch(tab, load)
     </div>
 
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight text-zinc-100">Rankings internos</h1>
+      <h1 class="lb-page-title text-zinc-100">Rankings internos</h1>
       <p class="mt-2 max-w-2xl text-sm text-zinc-400">
-        Top victorias en partidas de bracket ya marcadas como completadas, por videojuego. No hay datos externos: sólo cuentan los
-        torneos cargados aquí y el resultado admin del bracket.
+        Top victorias en partidas de bracket marcadas como finalizadas, por videojuego. Sin datos externos: solo cuentan los torneos
+        registrados aquí y cómo marcó ganadores el administrador del bracket.
       </p>
     </div>
 
@@ -42,11 +42,11 @@ watch(tab, load)
         v-for="x in ['VALORANT', 'FORTNITE', 'MLB'] as const"
         :key="x"
         type="button"
-        class="rounded-md border px-3 py-2"
+        class="rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-wider transition"
         :class="
           tab === x
-            ? 'border-emerald-500/70 bg-emerald-950/30 text-emerald-100'
-            : 'border-zinc-700 bg-zinc-950 text-zinc-300 hover:bg-zinc-900'
+            ? 'border-cyan-500/50 bg-cyan-950/35 text-cyan-50 shadow-[0_0_22px_-6px_rgb(34,211,238,0.35)]'
+            : 'border-zinc-700 bg-zinc-950/70 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
         "
         @click="tab = x"
       >
@@ -56,9 +56,9 @@ watch(tab, load)
 
     <p v-if="err" class="text-sm text-rose-300">{{ err }}</p>
 
-    <div class="overflow-hidden rounded-xl border border-zinc-800">
+    <div class="lb-table-shell !rounded-xl !p-0">
       <table class="w-full text-left text-sm">
-        <thead class="bg-zinc-950 text-xs text-zinc-400">
+        <thead class="border-b border-zinc-800/80 bg-zinc-950/95 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
           <tr>
             <th class="px-4 py-2">#</th>
             <th class="px-4 py-2">Jugador</th>
@@ -76,7 +76,7 @@ watch(tab, load)
           >
             <td class="px-4 py-2 font-mono text-zinc-500">{{ idx + 1 }}</td>
             <td class="px-4 py-2">
-              <RouterLink :to="`/users/${row.userId}`" class="text-sky-300 hover:underline">
+              <RouterLink :to="`/users/${row.userId}`" class="font-medium text-violet-200 hover:text-cyan-200 hover:underline">
                 {{ row.nickname?.trim() ? row.nickname : row.username }}
               </RouterLink>
               <div class="font-mono text-[11px] text-zinc-500">@{{ row.username }}</div>

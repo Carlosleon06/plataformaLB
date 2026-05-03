@@ -95,61 +95,87 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-full">
-    <header class="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
-      <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-        <RouterLink to="/" class="text-sm font-semibold tracking-wide text-zinc-100">
-          LEON BON
+  <div class="relative min-h-full">
+    <div class="lb-main-bg" aria-hidden="true" />
+    <div class="lb-scanlines" aria-hidden="true" />
+
+    <header
+      class="sticky top-0 z-40 border-b border-violet-500/20 bg-zinc-950/75 shadow-lg shadow-black/30 backdrop-blur-xl"
+    >
+      <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-5">
+        <RouterLink
+          to="/"
+          class="group font-display text-base font-bold uppercase tracking-wide text-transparent transition"
+        >
+          <span
+            class="bg-gradient-to-r from-violet-200 via-white to-cyan-200 bg-clip-text drop-shadow-[0_0_28px_rgba(167,139,250,0.45)] group-hover:from-violet-100 group-hover:via-violet-50 group-hover:to-cyan-100"
+            >LEON BON</span
+          >
         </RouterLink>
 
-        <nav class="flex items-center gap-3 text-sm">
-          <RouterLink class="text-zinc-300 hover:text-white" to="/tournaments">Torneos</RouterLink>
-          <RouterLink class="text-zinc-300 hover:text-white" to="/teams">Equipos</RouterLink>
-          <RouterLink class="text-zinc-300 hover:text-white" to="/leaderboards">Rankings</RouterLink>
+        <nav class="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-sm md:gap-x-1">
+          <RouterLink class="lb-nav-link font-medium" active-class="lb-nav-link-active" to="/tournaments"
+            >Torneos</RouterLink
+          >
+          <RouterLink class="lb-nav-link font-medium" active-class="lb-nav-link-active" to="/teams">Equipos</RouterLink>
+          <RouterLink class="lb-nav-link font-medium" active-class="lb-nav-link-active" to="/leaderboards"
+            >Rankings</RouterLink
+          >
           <template v-if="auth.me?.role === 'ADMIN'">
-            <RouterLink class="text-amber-200/90 hover:text-amber-100" to="/admin/teams">Admin equipos</RouterLink>
-            <RouterLink class="text-amber-200/90 hover:text-amber-100" to="/admin/tournaments">Admin torneos</RouterLink>
-            <RouterLink class="text-amber-200/90 hover:text-amber-100" to="/admin/tournaments/create">Crear torneo</RouterLink>
+            <span class="hidden px-1 text-zinc-700 sm:inline" aria-hidden="true">·</span>
+            <RouterLink
+              class="lb-nav-link font-medium text-amber-200/90 hover:text-amber-50"
+              active-class="lb-nav-link-active text-amber-100"
+              to="/admin/teams"
+              >Admin equipos</RouterLink
+            >
+            <RouterLink
+              class="lb-nav-link font-medium text-amber-200/90 hover:text-amber-50"
+              active-class="lb-nav-link-active text-amber-100"
+              to="/admin/tournaments"
+              >Admin torneos</RouterLink
+            >
+            <RouterLink
+              class="lb-nav-link font-medium text-amber-200/90 hover:text-amber-50"
+              to="/admin/tournaments/create"
+              >Crear torneo</RouterLink
+            >
           </template>
           <template v-if="auth.isAuthed">
+            <span class="hidden px-1 text-zinc-700 md:inline" aria-hidden="true">·</span>
             <RouterLink
               v-if="auth.me?.id"
-              class="hidden text-emerald-200/85 hover:text-emerald-100 sm:inline-block"
+              class="lb-nav-link hidden font-medium text-emerald-200/90 hover:text-emerald-50 sm:inline-block"
+              active-class="lb-nav-link-active"
               :to="`/users/${auth.me.id}`"
-              >Mi perfil</RouterLink
+              >Perfil</RouterLink
             >
             <RouterLink
-              v-if="auth.isAuthed"
-              class="hidden text-zinc-300 hover:text-white sm:inline-block"
+              class="lb-nav-link hidden font-medium sm:inline-block"
+              active-class="lb-nav-link-active"
               to="/profile/edit"
-              >Editar perfil</RouterLink
+              >Editar</RouterLink
             >
-            <div class="hidden text-zinc-300 sm:block">
-              <span class="text-zinc-500">L-Coins</span>
-              <span class="ml-2 font-mono">{{ auth.me?.leonCoinsBalance ?? '—' }}</span>
-            </div>
-            <button
-              type="button"
-              class="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-zinc-100 hover:bg-zinc-800"
-              @click="auth.logout()"
+            <RouterLink
+              to="/"
+              title="Inicio — perfil, historial y claim diario"
+              class="hidden items-center gap-1 rounded-lg border border-zinc-800/80 bg-black/30 px-2.5 py-1 font-mono text-xs text-cyan-100/90 no-underline transition hover:border-cyan-500/40 hover:bg-cyan-950/20 hover:text-cyan-50 hover:shadow-[0_0_20px_-6px_rgba(34,211,238,0.35)] md:inline-flex focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500/55"
+              aria-label="Ir al inicio: L-Coins, historial y claim diario"
             >
-              Salir
-            </button>
+              <span class="text-zinc-500">LC</span>
+              <span class="font-semibold">{{ auth.me?.leonCoinsBalance ?? '—' }}</span>
+            </RouterLink>
+            <button type="button" class="lb-btn-ghost !px-2.5 !py-1.5 text-xs" @click="auth.logout()">Salir</button>
           </template>
           <template v-else>
-            <RouterLink class="text-zinc-300 hover:text-white" to="/login">Entrar</RouterLink>
-            <RouterLink
-              class="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-zinc-950 hover:bg-zinc-200"
-              to="/register"
-            >
-              Registro
-            </RouterLink>
+            <RouterLink class="lb-nav-link font-medium" to="/login">Entrar</RouterLink>
+            <RouterLink class="lb-btn-primary !px-3 !py-1.5 text-xs" to="/register">Registro</RouterLink>
           </template>
         </nav>
       </div>
     </header>
 
-    <main class="mx-auto max-w-5xl px-4 py-8">
+    <main class="mx-auto max-w-6xl px-4 py-8 md:px-5 md:py-10">
       <RouterView />
     </main>
 

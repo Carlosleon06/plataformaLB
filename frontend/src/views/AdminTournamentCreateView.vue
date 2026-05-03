@@ -307,7 +307,7 @@ async function submit() {
         <p class="mt-1 text-[11px] text-zinc-500">
           Al cerrarse el torneo se acreditan L-Coins por colocaciones 1.er, 2.º … según estos importes. En equipo, el pool
           de cada puesto se divide en partes iguales entre el roster de esa entrada. Configurá solo tantos puestos como el
-          formato vaya a emitir (ej. liga sólo garantiza hasta 2 puestos con el esquema actual).
+          formato vaya a emitir (ej. liga solo garantiza hasta 2 puestos con el esquema actual).
         </p>
         <div class="mt-3 max-w-xs">
           <label class="block text-xs text-zinc-500">¿Cuántos puestos con premio?</label>
