@@ -140,7 +140,7 @@ function rankEntries(): string[] {
       </section>
 
       <p class="max-w-2xl text-sm text-zinc-400">
-        Torneos y estadísticas cargadas en Leon Bon (bracket oficial + números por partida que registra el administrador).
+        Torneos y estadísticas cargadas en BON e-sports (bracket oficial + números por partida que registra el administrador).
       </p>
 
       <section v-for="g in snapshot.games" :key="g.game" class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">

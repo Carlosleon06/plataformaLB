@@ -346,7 +346,7 @@ function fmtStat(n: number | null | undefined): string {
       v-if="team.status === 'APPROVED'"
       class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5"
     >
-      <h2 class="text-sm font-semibold text-zinc-200">Presencia pública · torneos Leon Bon</h2>
+      <h2 class="text-sm font-semibold text-zinc-200">Presencia pública · torneos BON e-sports</h2>
       <div class="mt-3 space-y-3 text-sm text-zinc-300">
         <div v-if="team.competitionSummaryOrNull">
           <dl class="grid gap-2 sm:grid-cols-4">

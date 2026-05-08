@@ -1,4 +1,4 @@
-# Flujo del sistema: LEON BON
+# Flujo del sistema: BON e-sports
 
 ---
 
@@ -8,7 +8,7 @@ Es la pantalla central del usuario. Muestra contexto inmediato sobre el estado d
 
 - **Header (persistente):**
 
-    - **Izquierda:** Logo LEON BON — enlace de regreso al inicio desde cualquier pantalla.
+    - **Izquierda:** Logo BON e-sports — enlace de regreso al inicio desde cualquier pantalla.
     - **Centro/nav:** Torneos, Equipos, Rankings.
     - **Derecha (sesión):** Enlace al perfil público, acceso a editar perfil, chip **LC** con saldo (enlaza al inicio), botón Salir. En admin: accesos directos a equipos pendientes, lista de torneos y crear torneo.
     - **Derecha (sin sesión):** Botones Entrar y Registro.

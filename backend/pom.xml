@@ -14,7 +14,7 @@
     <artifactId>leonbon-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>leonbon-backend</name>
-    <description>LEON BON tournaments platform backend</description>
+    <description>BON e-sports tournaments platform backend</description>
 
     <properties>
         <java.version>17</java.version>

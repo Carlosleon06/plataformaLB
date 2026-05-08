@@ -1,4 +1,4 @@
-# Plataforma de Torneos: LEON BON
+# Plataforma de Torneos: BON e-sports
 
 ## Módulo de Usuarios
 

@@ -109,7 +109,7 @@ onUnmounted(() => {
         >
           <span
             class="bg-gradient-to-r from-violet-200 via-white to-cyan-200 bg-clip-text drop-shadow-[0_0_28px_rgba(167,139,250,0.45)] group-hover:from-violet-100 group-hover:via-violet-50 group-hover:to-cyan-100"
-            >LEON BON</span
+            >BON e-sports</span
           >
         </RouterLink>
 

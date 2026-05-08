@@ -1,5 +1,5 @@
 # =============================================================================
-# LEON BON — MVP 0: una sola fuente de verdad para decisiones de producto/runtime
+# BON e-sports — MVP 0: una sola fuente de verdad para decisiones de producto/runtime
 #
 # Esta plantilla documenta valores por defecto y un flujo manual E2E SIN usar el
 # seed opcional (`app.dev.seedFriendshipBracket`). Ejecutá MongoDB local y este

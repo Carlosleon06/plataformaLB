@@ -1,8 +1,8 @@
-# LEON BON — Plataforma de torneos
+# BON e-sports — Plataforma de torneos
 
 ## Qué es
 
-**LEON BON** es una plataforma web de torneos competitivos para tres juegos: **Valorant**, **Fortnite** y **MLB The Show** (1v1). No es un juego en sí, sino el **lobby** donde se organiza todo lo que rodea a la competencia: se crean equipos, se inscriben en torneos, se sigue el bracket en tiempo real, y existe una moneda interna llamada **L-Coins** con la que los jugadores pueden apostar en partidas, recibir premios por su colocación final o simplemente acumular racha de presencia a través de un bono diario.
+**BON e-sports** es una plataforma web de torneos competitivos para tres juegos: **Valorant**, **Fortnite** y **MLB The Show** (1v1). No es un juego en sí, sino el **lobby** donde se organiza todo lo que rodea a la competencia: se crean equipos, se inscriben en torneos, se sigue el bracket en tiempo real, y existe una moneda interna llamada **L-Coins** con la que los jugadores pueden apostar en partidas, recibir premios por su colocación final o simplemente acumular racha de presencia a través de un bono diario.
 
 La idea central es que el jugador tenga **un solo lugar** donde ver en qué torneo está, cómo le va al bracket, cuánto lleva apostado y qué tan arriba está en el ranking de su juego. El admin, por su parte, tiene control total sobre el ciclo de vida del evento sin necesidad de tocar base de datos.
 
@@ -120,4 +120,4 @@ La plataforma mantiene una **conexión WebSocket** abierta mientras el usuario n
 
 ---
 
-*Este documento describe la plataforma en su estado terminado. Para el flujo original de visión del producto ver `Flujo del sistema.md` y `Proyecto acomodado.md`.*
+*Este documento describe la plataforma en su estado terminado. Para el flujo original de visión del producto ver `Flujo del sistema.md` y `Proyecto acomodado.md`*
