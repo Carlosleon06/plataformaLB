@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { apiFetch } from '../lib/api'
+import { apiFetch, coerceBearerToken } from '../lib/api'
 
 export type TeamCompetitionSummary = {
   tournamentsWithApprovedEntry: number
@@ -151,9 +151,11 @@ export const useTeamsStore = defineStore('teams', () => {
   }
 
   async function getTeam(token: string | null, teamId: string): Promise<TeamPublic | TeamCaptainView> {
-    return (await apiFetch(`/api/teams/${encodeURIComponent(teamId)}`, { method: 'GET' }, token)) as
-      | TeamPublic
-      | TeamCaptainView
+    const authed = Boolean(coerceBearerToken(token))
+    const path = authed
+      ? `/api/teams/${encodeURIComponent(teamId)}`
+      : `/api/teams/public/${encodeURIComponent(teamId)}`
+    return (await apiFetch(path, { method: 'GET' }, authed ? token : null)) as TeamPublic | TeamCaptainView
   }
 
   async function listMyCaptainTeams(token: string): Promise<CaptainTeamSummary[]> {

@@ -232,7 +232,11 @@ function fmtStat(n: number | null | undefined): string {
 </script>
 
 <template>
-  <div v-if="!team" class="text-sm text-zinc-400">Cargando…</div>
+  <div v-if="localError && !team" class="space-y-2">
+    <p class="text-sm text-rose-400">{{ localError }}</p>
+    <RouterLink to="/teams" class="text-sm text-sky-400 hover:underline">Volver a equipos</RouterLink>
+  </div>
+  <div v-else-if="!team" class="text-sm text-zinc-400">Cargando…</div>
 
   <div v-else class="space-y-6">
     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -349,20 +353,32 @@ function fmtStat(n: number | null | undefined): string {
       <h2 class="text-sm font-semibold text-zinc-200">Presencia pública · torneos BON e-sports</h2>
       <div class="mt-3 space-y-3 text-sm text-zinc-300">
         <div v-if="team.competitionSummaryOrNull">
-          <dl class="grid gap-2 sm:grid-cols-4">
+          <dl class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <dt class="text-xs text-zinc-500">Torneos jugados</dt>
+              <dt class="text-xs text-zinc-500">Torneos con ficha aprobada</dt>
               <dd class="font-mono">{{ team.competitionSummaryOrNull.tournamentsWithApprovedEntry }}</dd>
             </div>
             <div>
-              <dt class="text-xs text-zinc-500">W / L bracket</dt>
+              <dt class="text-xs text-zinc-500">Partidas de bracket (G / P)</dt>
               <dd class="font-mono">{{ team.competitionSummaryOrNull.bracketWins }} / {{ team.competitionSummaryOrNull.bracketLosses }}</dd>
             </div>
             <div>
-              <dt class="text-xs text-zinc-500">Winrate</dt>
+              <dt class="text-xs text-zinc-500">Partidas con resultado</dt>
+              <dd class="font-mono">
+                {{
+                  team.competitionSummaryOrNull.bracketWins + team.competitionSummaryOrNull.bracketLosses
+                }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-xs text-zinc-500">Winrate (por partida)</dt>
               <dd class="font-mono">{{ team.competitionSummaryOrNull.winRatePct == null ? '—' : `${team.competitionSummaryOrNull.winRatePct}%` }}</dd>
             </div>
           </dl>
+          <p class="mt-2 text-[11px] leading-relaxed text-zinc-500">
+            Un mismo torneo puede sumar varias partidas en el bracket (semifinal, final, etc.). Por eso el conteo de
+            torneos no tiene por qué coincidir con el número de victorias.
+          </p>
         </div>
 
         <div

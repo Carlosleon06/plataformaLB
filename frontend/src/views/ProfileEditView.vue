@@ -17,7 +17,9 @@ const xUrl = ref('')
 const instagram = ref('')
 const discord = ref('')
 const preferredGame = ref('')
-const ranksJson = ref('')
+const rankValorant = ref('')
+const rankFortnite = ref('')
+const rankMlb = ref('')
 const busy = ref(false)
 const msg = ref<string | null>(null)
 const localErr = ref<string | null>(null)
@@ -38,7 +40,9 @@ function loadFromMe() {
   discord.value = s.discord ?? ''
   preferredGame.value = m.preferredGame ?? ''
   const rk = m.rankLabelsByGame ?? {}
-  ranksJson.value = Object.keys(rk).length === 0 ? '' : JSON.stringify(rk, null, 2)
+  rankValorant.value = rk['VALORANT'] ?? ''
+  rankFortnite.value = rk['FORTNITE'] ?? ''
+  rankMlb.value = rk['MLB'] ?? ''
 }
 
 onMounted(() => {
@@ -49,18 +53,17 @@ async function submit() {
   localErr.value = null
   msg.value = null
   if (!auth.token) return
-  const raw = ranksJson.value.trim()
-  let rankLabelsByGame: Record<string, string>
-  if (raw.length === 0) {
-    rankLabelsByGame = {}
-  } else {
-    try {
-      rankLabelsByGame = JSON.parse(raw) as Record<string, string>
-    } catch {
-      localErr.value = 'Rangos: JSON inválido'
-      return
-    }
-  }
+  const rankLabelsByGame: Record<string, string> = { ...(auth.me?.rankLabelsByGame ?? {}) }
+  const vVal = rankValorant.value.trim()
+  const vFn = rankFortnite.value.trim()
+  const vMlb = rankMlb.value.trim()
+  if (vVal) rankLabelsByGame.VALORANT = vVal
+  else delete rankLabelsByGame.VALORANT
+  if (vFn) rankLabelsByGame.FORTNITE = vFn
+  else delete rankLabelsByGame.FORTNITE
+  if (vMlb) rankLabelsByGame.MLB = vMlb
+  else delete rankLabelsByGame.MLB
+
   const payload: Record<string, unknown> = {
     nickname: nickname.value.trim(),
     email: email.value.trim(),
@@ -165,14 +168,36 @@ async function submit() {
         </select>
       </label>
 
-      <label class="block text-sm">
-        <span class="text-zinc-400">Rangos por juego (JSON plano ej. {\"VALORANT\":\"Immortal 2\"})</span>
-        <textarea
-          v-model="ranksJson"
-          rows="4"
-          class="mt-1 w-full resize-y rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs outline-none focus:border-zinc-600"
-        />
-      </label>
+      <div class="space-y-2">
+        <p class="text-xs text-zinc-500">Rango o división que quieres mostrar en tu perfil público (texto libre, opcional por juego).</p>
+        <label class="block text-sm">
+          <span class="text-zinc-400">Valorant</span>
+          <input
+            v-model="rankValorant"
+            type="text"
+            placeholder="Ej. Inmortal 2"
+            class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
+          />
+        </label>
+        <label class="block text-sm">
+          <span class="text-zinc-400">Fortnite</span>
+          <input
+            v-model="rankFortnite"
+            type="text"
+            placeholder="Ej. Unreal"
+            class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
+          />
+        </label>
+        <label class="block text-sm">
+          <span class="text-zinc-400">MLB The Show</span>
+          <input
+            v-model="rankMlb"
+            type="text"
+            placeholder="Ej. 900+ rating"
+            class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
+          />
+        </label>
+      </div>
 
       <button
         type="submit"

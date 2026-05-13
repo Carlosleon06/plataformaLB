@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { onMounted, onUnmounted, watch } from 'vue'
 import type { Client, IMessage, StompSubscription } from '@stomp/stompjs'
 import { useAuthStore } from './stores/auth'
@@ -10,6 +10,21 @@ import ToastStack from './components/ToastStack.vue'
 
 const auth = useAuthStore()
 const notif = useNotificationsStore()
+const route = useRoute()
+const router = useRouter()
+
+function pathRequiresSession(path: string): boolean {
+  return (
+    path.startsWith('/profile') ||
+    path.startsWith('/admin') ||
+    path === '/teams/create'
+  )
+}
+
+function handleLogout() {
+  auth.logout()
+  void router.replace({ name: 'home' })
+}
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let notifStomp: Client | null = null
@@ -85,6 +100,17 @@ watch(
   () => {
     startPoll()
     connectNotifStomp()
+  },
+)
+
+/** Si la sesión expira o `bootstrap` limpia el token, no dejar al usuario en rutas solo para autenticados. */
+watch(
+  () => auth.isAuthed,
+  (authed) => {
+    if (authed) return
+    if (pathRequiresSession(route.path)) {
+      void router.replace({ name: 'home' })
+    }
   },
 )
 
@@ -165,7 +191,7 @@ onUnmounted(() => {
               <span class="text-zinc-500">LC</span>
               <span class="font-semibold">{{ auth.me?.leonCoinsBalance ?? '—' }}</span>
             </RouterLink>
-            <button type="button" class="lb-btn-ghost !px-2.5 !py-1.5 text-xs" @click="auth.logout()">Salir</button>
+            <button type="button" class="lb-btn-ghost !px-2.5 !py-1.5 text-xs" @click="handleLogout()">Salir</button>
           </template>
           <template v-else>
             <RouterLink class="lb-nav-link font-medium" to="/login">Entrar</RouterLink>
