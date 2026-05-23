@@ -2,8 +2,14 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { formatDateTimeShort } from '../lib/format'
+import {
+  isRegistrationAcceptingEntries,
+  lifecycleBadgeClass,
+  lifecycleDisplayLabel,
+} from '../lib/tournamentRegistration'
+import type { Tournament } from '../stores/tournaments'
 import { useAuthStore } from '../stores/auth'
-import { useTournamentsStore, type Tournament } from '../stores/tournaments'
+import { useTournamentsStore } from '../stores/tournaments'
 
 const auth = useAuthStore()
 const tournaments = useTournamentsStore()
@@ -15,7 +21,7 @@ const filter = ref<'all' | 'open'>('all')
 
 const filteredItems = computed(() => {
   if (filter.value === 'open') {
-    return items.value.filter((t) => t.lifecycleStatus === 'REGISTRATION_OPEN')
+    return items.value.filter((t) => isRegistrationAcceptingEntries(t))
   }
   return items.value
 })
@@ -33,35 +39,6 @@ function fmt(iso: string) {
   return formatDateTimeShort(iso)
 }
 
-function lifecycleLabel(s: string): string {
-  switch (s) {
-    case 'REGISTRATION_OPEN':
-      return 'Inscripción abierta'
-    case 'REGISTRATION_CLOSED':
-      return 'Inscripción cerrada'
-    case 'LIVE':
-      return 'En curso'
-    case 'COMPLETED':
-      return 'Finalizado'
-    default:
-      return s
-  }
-}
-
-function lifecycleBadgeClass(s: string): string {
-  switch (s) {
-    case 'REGISTRATION_OPEN':
-      return 'border-emerald-800/60 bg-emerald-950/40 text-emerald-200'
-    case 'REGISTRATION_CLOSED':
-      return 'border-amber-800/50 bg-amber-950/30 text-amber-100'
-    case 'LIVE':
-      return 'border-sky-800/50 bg-sky-950/40 text-sky-200'
-    case 'COMPLETED':
-      return 'border-zinc-700 bg-zinc-900 text-zinc-400'
-    default:
-      return 'border-zinc-700 bg-zinc-900 text-zinc-400'
-  }
-}
 </script>
 
 <template>
@@ -102,7 +79,7 @@ function lifecycleBadgeClass(s: string): string {
         "
         @click="filter = 'open'"
       >
-        Inscripción abierta ({{ items.filter((x) => x.lifecycleStatus === 'REGISTRATION_OPEN').length }})
+        Inscripción abierta ({{ items.filter((x) => isRegistrationAcceptingEntries(x)).length }})
       </button>
     </div>
 
@@ -138,9 +115,9 @@ function lifecycleBadgeClass(s: string): string {
             <td class="px-4 py-3">
               <span
                 class="inline-block rounded border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide"
-                :class="lifecycleBadgeClass(t.lifecycleStatus)"
+                :class="lifecycleBadgeClass(t)"
               >
-                {{ lifecycleLabel(t.lifecycleStatus) }}
+                {{ lifecycleDisplayLabel(t) }}
               </span>
             </td>
             <td class="px-4 py-3 font-mono text-xs text-zinc-300">{{ t.game }}</td>

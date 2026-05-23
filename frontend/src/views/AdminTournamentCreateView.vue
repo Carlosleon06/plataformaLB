@@ -285,6 +285,10 @@ async function submit() {
           :min-local="minCompetitionEnd"
         />
       </div>
+      <p class="text-xs text-zinc-500">
+        Al crear, el torneo queda en <span class="font-mono text-zinc-400">Inscripción programada</span>. Los jugadores podrán inscribirse
+        automáticamente entre inicio y fin de inscripción, o antes si un admin abre inscripciones manualmente en la ficha del torneo.
+      </p>
 
       <div>
         <label class="block text-xs text-zinc-500">URL stream (opcional)</label>

@@ -9,6 +9,7 @@ export type Tournament = {
   game: string
   format: string
   lifecycleStatus: string
+  registrationManuallyOpened?: boolean
   registrationStartAt: string
   registrationEndAt: string
   competitionStartAt: string
@@ -177,6 +178,14 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     )) as Tournament
   }
 
+  async function openRegistrationAdmin(token: string, tournamentId: string): Promise<Tournament> {
+    return (await apiFetch(
+      `/api/admin/tournaments/${encodeURIComponent(tournamentId)}/registration/open`,
+      { method: 'POST' },
+      token,
+    )) as Tournament
+  }
+
   async function reopenRegistrationAdmin(token: string, tournamentId: string): Promise<Tournament> {
     return (await apiFetch(
       `/api/admin/tournaments/${encodeURIComponent(tournamentId)}/registration/reopen`,
@@ -313,6 +322,7 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     listMatches,
     getMatchStats,
     closeRegistrationAdmin,
+    openRegistrationAdmin,
     reopenRegistrationAdmin,
     deleteTournamentAdmin,
     generateBracketAdmin,

@@ -4,6 +4,11 @@ import type { Client, IMessage, StompSubscription } from '@stomp/stompjs'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { coerceBearerToken } from '../lib/api'
 import { formatDateTimeShort } from '../lib/format'
+import {
+  isRegistrationAcceptingEntries,
+  lifecycleBadgeClass,
+  lifecycleDisplayLabel,
+} from '../lib/tournamentRegistration'
 import { createSockJsStompClient } from '../lib/stompSockJs'
 import { LEONBON_TOKEN_STORAGE_KEY, useAuthStore } from '../stores/auth'
 import { useBetsStore, type Bet } from '../stores/bets'
@@ -115,7 +120,18 @@ const statsFormState = ref<StatsFormState | null>(null)
 const statsInputCls =
   'w-full rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-[11px] text-zinc-100 placeholder:text-zinc-600'
 
-const registrationOpen = computed(() => tournament.value?.lifecycleStatus === 'REGISTRATION_OPEN')
+const registrationOpen = computed(() =>
+  tournament.value ? isRegistrationAcceptingEntries(tournament.value) : false,
+)
+
+const canOpenRegistration = computed(
+  () =>
+    isAdmin.value &&
+    tournament.value?.lifecycleStatus === 'REGISTRATION_SCHEDULED' &&
+    matches.value.length === 0 &&
+    !tournament.value?.bracketSize,
+)
+
 const canBuildBracket = computed(
   () =>
     isAdmin.value &&
@@ -921,6 +937,22 @@ async function generateBracket() {
   }
 }
 
+async function openRegistration() {
+  const bearer = resolveBearer()
+  if (!bearer || !tournament.value) return
+  localError.value = null
+  adminBracketBusy.value = true
+  try {
+    await tournaments.openRegistrationAdmin(bearer, tournament.value.id)
+    successMsg.value = 'Inscripciones abiertas manualmente.'
+    await reload()
+  } catch (e) {
+    localError.value = e instanceof Error ? e.message : 'Error'
+  } finally {
+    adminBracketBusy.value = false
+  }
+}
+
 async function reopenRegistration() {
   const bearer = resolveBearer()
   if (!bearer || !tournament.value) return
@@ -928,7 +960,7 @@ async function reopenRegistration() {
   adminBracketBusy.value = true
   try {
     await tournaments.reopenRegistrationAdmin(bearer, tournament.value.id)
-    successMsg.value = 'Inscripciones reabiertas (REGISTRATION_OPEN).'
+    successMsg.value = 'Inscripciones reabiertas.'
     await reload()
   } catch (e) {
     localError.value = e instanceof Error ? e.message : 'Error'
@@ -1021,7 +1053,15 @@ async function setMatchWinner(matchId: string, winnerEntryId: string) {
         </div>
         <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 sm:col-span-2">
           <dt class="text-zinc-500">Estado del torneo</dt>
-          <dd class="mt-1 font-mono text-zinc-200">{{ tournament.lifecycleStatus }}</dd>
+          <dd class="mt-1">
+            <span
+              class="inline-flex rounded border px-2 py-0.5 text-xs font-medium"
+              :class="lifecycleBadgeClass(tournament)"
+            >
+              {{ lifecycleDisplayLabel(tournament) }}
+            </span>
+            <span class="ml-2 font-mono text-xs text-zinc-500">{{ tournament.lifecycleStatus }}</span>
+          </dd>
         </div>
         <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 sm:col-span-2">
           <dt class="text-zinc-500">Inscripción</dt>
@@ -1073,14 +1113,23 @@ async function setMatchWinner(matchId: string, winnerEntryId: string) {
       <section v-if="isAdmin" class="rounded-xl border border-amber-900/40 bg-amber-950/20 p-5">
         <h2 class="text-sm font-semibold text-amber-100">Admin — bracket</h2>
         <p class="mt-1 text-xs text-amber-200/80">
-          Cierra inscripciones, aprueba al menos 2 entradas, luego genera el calendario. Si cerraste sin querer y aún no hay calendario,
-          puedes reabrir inscripciones o eliminar el torneo y crear uno nuevo.
+          Las inscripciones se abren solas a la hora de inicio o con «Abrir inscripciones» antes. Cierra cuando quieras, aprueba al menos 2
+          entradas y genera el calendario. Si cerraste sin querer y aún no hay calendario, puedes reabrir o eliminar el torneo.
           <span class="font-mono">SINGLE_ELIM</span> y <span class="font-mono">DOUBLE_ELIM</span> (hasta 8 slots en cuadro de
           ganadores). <span class="font-mono">ROUND_ROBIN</span>: todos contra todos; al terminar todas las partidas el torneo pasa a
           <span class="font-mono">COMPLETED</span>. Marca ganador en cada partida <span class="font-mono">READY</span>. Las apuestas son
           parimutuel: solo durante la ventana configurada desde la hora programada del partido (véase la tabla).
         </p>
         <div class="mt-4 flex flex-wrap gap-2">
+          <button
+            v-if="canOpenRegistration"
+            type="button"
+            class="rounded-md border border-emerald-800 bg-emerald-950/40 px-3 py-2 text-xs text-emerald-100 hover:bg-emerald-950/60 disabled:opacity-40"
+            :disabled="adminBracketBusy"
+            @click="openRegistration()"
+          >
+            Abrir inscripciones
+          </button>
           <button
             v-if="registrationOpen"
             type="button"
@@ -1507,8 +1556,11 @@ async function setMatchWinner(matchId: string, winnerEntryId: string) {
       <section v-else-if="auth.isAuthed && tournament" class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
         <h2 class="text-sm font-semibold text-zinc-200">Inscripción</h2>
         <p class="mt-2 text-sm text-zinc-400">
-          La inscripción no está abierta (estado: <span class="font-mono text-zinc-200">{{ tournament.lifecycleStatus }}</span
-          >).
+          La inscripción no está abierta ahora (<span class="text-zinc-200">{{ lifecycleDisplayLabel(tournament) }}</span
+          >). Ventana: {{ fmt(tournament.registrationStartAt) }} — {{ fmt(tournament.registrationEndAt) }}.
+        </p>
+        <p v-if="tournament.lifecycleStatus === 'REGISTRATION_SCHEDULED'" class="mt-2 text-xs text-zinc-500">
+          Se abrirá automáticamente al llegar la hora de inicio, o cuando un admin pulse «Abrir inscripciones».
         </p>
       </section>
 

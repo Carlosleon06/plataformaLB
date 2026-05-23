@@ -20,7 +20,10 @@ public class Tournament {
 
     private TournamentFormat format;
 
-    private TournamentLifecycleStatus lifecycleStatus = TournamentLifecycleStatus.REGISTRATION_OPEN;
+    private TournamentLifecycleStatus lifecycleStatus = TournamentLifecycleStatus.REGISTRATION_SCHEDULED;
+
+    /** true si el admin abrió inscripciones antes de registrationStartAt. */
+    private boolean registrationManuallyOpened;
 
     private Instant registrationStartAt;
     private Instant registrationEndAt;
@@ -106,6 +109,14 @@ public class Tournament {
 
     public void setLifecycleStatus(TournamentLifecycleStatus lifecycleStatus) {
         this.lifecycleStatus = lifecycleStatus;
+    }
+
+    public boolean isRegistrationManuallyOpened() {
+        return registrationManuallyOpened;
+    }
+
+    public void setRegistrationManuallyOpened(boolean registrationManuallyOpened) {
+        this.registrationManuallyOpened = registrationManuallyOpened;
     }
 
     public Instant getRegistrationStartAt() {

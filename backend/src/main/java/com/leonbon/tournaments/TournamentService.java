@@ -87,7 +87,8 @@ public class TournamentService {
         t.setOrganizers(req.getOrganizers().trim());
         t.setGame(req.getGame());
         t.setFormat(req.getFormat());
-        t.setLifecycleStatus(TournamentLifecycleStatus.REGISTRATION_OPEN);
+        t.setLifecycleStatus(TournamentLifecycleStatus.REGISTRATION_SCHEDULED);
+        t.setRegistrationManuallyOpened(false);
         t.setRegistrationStartAt(req.getRegistrationStartAt());
         t.setRegistrationEndAt(req.getRegistrationEndAt());
         t.setCompetitionStartAt(req.getCompetitionStartAt());
@@ -111,16 +112,27 @@ public class TournamentService {
     }
 
     public List<TournamentResponse> listPublicTournaments() {
-        return tournamentRepository.findTop80ByOrderByCompetitionStartAtDesc().stream().map(this::toResponse).toList();
+        return tournamentRepository.findTop80ByOrderByCompetitionStartAtDesc().stream()
+                .map(this::syncAndToResponse)
+                .toList();
     }
 
     public List<TournamentResponse> listTournamentsForAdmin(JwtPrincipal admin) {
         assertDbAdmin(admin);
-        return tournamentRepository.findTop200ByOrderByUpdatedAtDesc().stream().map(this::toResponse).toList();
+        return tournamentRepository.findTop200ByOrderByUpdatedAtDesc().stream()
+                .map(this::syncAndToResponse)
+                .toList();
     }
 
     public TournamentResponse getPublicTournament(String tournamentId) {
         Tournament t = tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
+        return syncAndToResponse(t);
+    }
+
+    private TournamentResponse syncAndToResponse(Tournament t) {
+        if (TournamentRegistrationLifecycle.syncScheduledTransitions(t, Instant.now())) {
+            t = tournamentRepository.save(t);
+        }
         return toResponse(t);
     }
 
@@ -282,10 +294,16 @@ public class TournamentService {
     }
 
     private void assertRegistrationOpen(Tournament tournament, Instant now) {
-        if (tournament.getLifecycleStatus() != TournamentLifecycleStatus.REGISTRATION_OPEN) {
-            throw new ConflictException("tournament registration is not open");
+        if (TournamentRegistrationLifecycle.syncScheduledTransitions(tournament, now)) {
+            tournamentRepository.save(tournament);
         }
-        if (now.isBefore(tournament.getRegistrationStartAt()) || now.isAfter(tournament.getRegistrationEndAt())) {
+        if (tournament.getLifecycleStatus() == TournamentLifecycleStatus.REGISTRATION_SCHEDULED) {
+            throw new ConflictException("tournament registration has not opened yet");
+        }
+        if (!TournamentRegistrationLifecycle.isRegistrationAcceptingEntries(tournament, now)) {
+            if (tournament.getLifecycleStatus() != TournamentLifecycleStatus.REGISTRATION_OPEN) {
+                throw new ConflictException("tournament registration is not open");
+            }
             throw new ConflictException("tournament is not in registration window");
         }
     }
@@ -387,28 +405,7 @@ public class TournamentService {
     }
 
     private TournamentResponse toResponse(Tournament t) {
-        return new TournamentResponse(
-                t.getId(),
-                t.getName(),
-                t.getOrganizers(),
-                t.getGame(),
-                t.getFormat(),
-                t.getLifecycleStatus(),
-                t.getRegistrationStartAt(),
-                t.getRegistrationEndAt(),
-                t.getCompetitionStartAt(),
-                t.getCompetitionEndAt(),
-                t.getStreamUrl(),
-                t.getRulesHtml(),
-                t.getEligibilityNotes(),
-                t.getPrizeNotes(),
-                t.getPrizeWinnerSlots(),
-                t.getPrizeLeonCoinsByPlacement() == null ? null : List.copyOf(t.getPrizeLeonCoinsByPlacement()),
-                t.getMaxApprovedParticipants(),
-                t.getBracketSize(),
-                t.getPlacementPrizeLedgerCompletedAt(),
-                t.getCreatedAt()
-        );
+        return TournamentResponses.from(t);
     }
 
     /** Premios monetarios por puesto declarados por el admin en la creación. */

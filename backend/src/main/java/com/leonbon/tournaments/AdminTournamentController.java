@@ -53,6 +53,13 @@ public class AdminTournamentController {
         return tournamentService.createTournamentAsAdmin(p, body);
     }
 
+    @PostMapping("/{tournamentId}/registration/open")
+    @PreAuthorize("isAuthenticated()")
+    public TournamentResponse openRegistration(Authentication auth, @PathVariable String tournamentId) {
+        JwtPrincipal p = (JwtPrincipal) auth.getPrincipal();
+        return tournamentBracketService.openRegistrationAsAdmin(p, tournamentId);
+    }
+
     @PostMapping("/{tournamentId}/registration/close")
     @PreAuthorize("isAuthenticated()")
     public TournamentResponse closeRegistration(Authentication auth, @PathVariable String tournamentId) {

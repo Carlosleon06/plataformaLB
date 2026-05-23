@@ -13,6 +13,7 @@ public record TournamentResponse(
         GameTitle game,
         TournamentFormat format,
         TournamentLifecycleStatus lifecycleStatus,
+        boolean registrationManuallyOpened,
         Instant registrationStartAt,
         Instant registrationEndAt,
         Instant competitionStartAt,

@@ -63,6 +63,27 @@ public class TournamentBracketService {
     }
 
     /**
+     * Abre inscripciones antes de {@code registrationStartAt} (solo admin, torneo en REGISTRATION_SCHEDULED).
+     */
+    public TournamentResponse openRegistrationAsAdmin(JwtPrincipal admin, String tournamentId) {
+        assertDbAdmin(admin);
+        Tournament t = tournamentRepository.findById(tournamentId).orElseThrow(() -> new NotFoundException("tournament not found"));
+        if (t.getLifecycleStatus() != TournamentLifecycleStatus.REGISTRATION_SCHEDULED) {
+            throw new ConflictException("solo se puede abrir inscripciones si el torneo está programado (REGISTRATION_SCHEDULED)");
+        }
+        assertNoBracketYet(tournamentId, t);
+        Instant now = Instant.now();
+        if (t.getRegistrationEndAt() != null && now.isAfter(t.getRegistrationEndAt())) {
+            throw new ConflictException("la ventana de inscripción ya terminó; ajusta las fechas o crea otro torneo");
+        }
+        t.setLifecycleStatus(TournamentLifecycleStatus.REGISTRATION_OPEN);
+        t.setRegistrationManuallyOpened(true);
+        t.setUpdatedAt(now);
+        tournamentRepository.save(t);
+        return toTournamentResponse(tournamentRepository.findById(tournamentId).orElseThrow());
+    }
+
+    /**
      * Undo an accidental close-registration: back to {@link TournamentLifecycleStatus#REGISTRATION_OPEN} only when no
      * bracket has been generated yet (no matches, no bracketSize).
      */
@@ -72,17 +93,25 @@ public class TournamentBracketService {
         if (t.getLifecycleStatus() != TournamentLifecycleStatus.REGISTRATION_CLOSED) {
             throw new ConflictException("solo se puede reabrir inscripciones si el estado es REGISTRATION_CLOSED");
         }
-        if (bracketMatchRepository.countByTournamentId(tournamentId) > 0) {
-            throw new ConflictException("no se puede reabrir: ya existen partidas de calendario");
-        }
-        if (t.getBracketSize() != null && t.getBracketSize() > 0) {
-            throw new ConflictException("no se puede reabrir: el torneo ya tiene bracket generado (bracketSize)");
-        }
+        assertNoBracketYet(tournamentId, t);
         Instant now = Instant.now();
+        if (t.getRegistrationEndAt() != null && now.isAfter(t.getRegistrationEndAt())) {
+            throw new ConflictException("la ventana de inscripción ya terminó");
+        }
         t.setLifecycleStatus(TournamentLifecycleStatus.REGISTRATION_OPEN);
+        t.setRegistrationManuallyOpened(true);
         t.setUpdatedAt(now);
         tournamentRepository.save(t);
         return toTournamentResponse(tournamentRepository.findById(tournamentId).orElseThrow());
+    }
+
+    private void assertNoBracketYet(String tournamentId, Tournament t) {
+        if (bracketMatchRepository.countByTournamentId(tournamentId) > 0) {
+            throw new ConflictException("no se puede modificar inscripciones: ya existen partidas de calendario");
+        }
+        if (t.getBracketSize() != null && t.getBracketSize() > 0) {
+            throw new ConflictException("no se puede modificar inscripciones: el torneo ya tiene bracket generado (bracketSize)");
+        }
     }
 
     /**
@@ -732,28 +761,7 @@ public class TournamentBracketService {
     }
 
     private static TournamentResponse toTournamentResponse(Tournament t) {
-        return new TournamentResponse(
-                t.getId(),
-                t.getName(),
-                t.getOrganizers(),
-                t.getGame(),
-                t.getFormat(),
-                t.getLifecycleStatus(),
-                t.getRegistrationStartAt(),
-                t.getRegistrationEndAt(),
-                t.getCompetitionStartAt(),
-                t.getCompetitionEndAt(),
-                t.getStreamUrl(),
-                t.getRulesHtml(),
-                t.getEligibilityNotes(),
-                t.getPrizeNotes(),
-                t.getPrizeWinnerSlots(),
-                t.getPrizeLeonCoinsByPlacement() == null ? null : List.copyOf(t.getPrizeLeonCoinsByPlacement()),
-                t.getMaxApprovedParticipants(),
-                t.getBracketSize(),
-                t.getPlacementPrizeLedgerCompletedAt(),
-                t.getCreatedAt()
-        );
+        return TournamentResponses.from(t);
     }
 
     private void markTournamentCompleted(String tournamentId, Instant now) {

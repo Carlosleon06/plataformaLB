@@ -86,6 +86,7 @@ app:
     defaultLogoUrl: ${TEAM_DEFAULT_LOGO_URL:https://placehold.co/512x512/png?text=LB}
 
   tournaments:
+    registrationLifecycleSweepMs: ${TOURNAMENT_REGISTRATION_SWEEP_MS:60000}
     minRoster:
       VALORANT: ${TOURNAMENT_MIN_ROSTER_VALORANT:5}
       FORTNITE: ${TOURNAMENT_MIN_ROSTER_FORTNITE:4}

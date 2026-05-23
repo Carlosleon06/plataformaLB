@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { normalizeStoredRank, rankSelectOptions } from '../lib/gameRankOptions'
 import type { PatchMyProfilePayload } from '../stores/auth'
 import { useAuthStore } from '../stores/auth'
 
@@ -40,9 +41,9 @@ function loadFromMe() {
   discord.value = s.discord ?? ''
   preferredGame.value = m.preferredGame ?? ''
   const rk = m.rankLabelsByGame ?? {}
-  rankValorant.value = rk['VALORANT'] ?? ''
-  rankFortnite.value = rk['FORTNITE'] ?? ''
-  rankMlb.value = rk['MLB'] ?? ''
+  rankValorant.value = normalizeStoredRank('VALORANT', rk['VALORANT'] ?? '')
+  rankFortnite.value = normalizeStoredRank('FORTNITE', rk['FORTNITE'] ?? '')
+  rankMlb.value = normalizeStoredRank('MLB', rk['MLB'] ?? '')
 }
 
 onMounted(() => {
@@ -169,33 +170,36 @@ async function submit() {
       </label>
 
       <div class="space-y-2">
-        <p class="text-xs text-zinc-500">Rango o división que quieres mostrar en tu perfil público (texto libre, opcional por juego).</p>
+        <p class="text-xs text-zinc-500">Rango o división que quieres mostrar en tu perfil público (opcional por juego).</p>
         <label class="block text-sm">
           <span class="text-zinc-400">Valorant</span>
-          <input
+          <select
             v-model="rankValorant"
-            type="text"
-            placeholder="Ej. Inmortal 2"
             class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
-          />
+          >
+            <option value="">Sin definir</option>
+            <option v-for="r in rankSelectOptions('VALORANT', rankValorant)" :key="r" :value="r">{{ r }}</option>
+          </select>
         </label>
         <label class="block text-sm">
           <span class="text-zinc-400">Fortnite</span>
-          <input
+          <select
             v-model="rankFortnite"
-            type="text"
-            placeholder="Ej. Unreal"
             class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
-          />
+          >
+            <option value="">Sin definir</option>
+            <option v-for="r in rankSelectOptions('FORTNITE', rankFortnite)" :key="r" :value="r">{{ r }}</option>
+          </select>
         </label>
         <label class="block text-sm">
           <span class="text-zinc-400">MLB The Show</span>
-          <input
+          <select
             v-model="rankMlb"
-            type="text"
-            placeholder="Ej. 900+ rating"
             class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-600"
-          />
+          >
+            <option value="">Sin definir</option>
+            <option v-for="r in rankSelectOptions('MLB', rankMlb)" :key="r" :value="r">{{ r }}</option>
+          </select>
         </label>
       </div>
 
