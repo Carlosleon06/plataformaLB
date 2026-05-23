@@ -33,6 +33,7 @@
 # Seed de desarrollo (NO obligatorio para E2E):
 # SEED_FRIENDSHIP_BRACKET=true + torneo ya creado (nombre en seedFriendshipTournamentName).
 # SEED_VALORANT_ARENA=true crea también el torneo y deja todo listo para generar bracket (single elim, 3 equipos).
+# SEED_TEAMS_POOL=true → 8 equipos APPROVED x 5 jugadores (sin torneos; password poolSeed1!)
 #
 # Punto vivo: GET /actuator/health (público) para saber si el proceso arranca.
 # =============================================================================
@@ -70,6 +71,8 @@ app:
     # (solo falta «Generar bracket» en admin). No producción.
     seedValorantArena: ${SEED_VALORANT_ARENA:false}
     seedValorantArenaName: ${SEED_VALORANT_ARENA_NAME:Cup Valorant (arena dev)}
+    # 8 equipos aprobados + cuentas pool01u1..pool08u5 (5 por equipo). Torneos los creas tu.
+    seedTeamsPool: ${SEED_TEAMS_POOL:false}
 
   cors:
     # Comma-separated list (Spring @Value can't bind YAML lists via a single placeholder)

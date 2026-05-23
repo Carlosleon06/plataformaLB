@@ -23,3 +23,6 @@ node_modules/
 dist/
 .vite/
 
+# Exportación local de código → PDF (generado con scripts/export-codebase-for-pdf.ps1)
+export/
+

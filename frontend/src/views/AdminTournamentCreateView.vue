@@ -1,16 +1,24 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import DatetimePickerField from '../components/DatetimePickerField.vue'
 import { coerceBearerToken } from '../lib/api'
+import {
+  addMsToLocal,
+  defaultRegistrationStartLocal,
+  parseDatetimeLocal,
+} from '../lib/datetimeLocal'
 import { LEONBON_TOKEN_STORAGE_KEY, useAuthStore } from '../stores/auth'
 import { useTournamentsStore, type CreateTournamentPayload } from '../stores/tournaments'
+
+const DAY_MS = 24 * 60 * 60 * 1000
 
 const auth = useAuthStore()
 const tournaments = useTournamentsStore()
 const router = useRouter()
 
 const name = ref('')
-const organizers = ref('')
+const organizers = ref('Leön Bon')
 const game = ref<CreateTournamentPayload['game']>('VALORANT')
 const format = ref<CreateTournamentPayload['format']>('SINGLE_ELIM')
 const registrationStartLocal = ref('')
@@ -21,15 +29,15 @@ const streamUrl = ref('')
 const rulesHtml = ref('')
 const eligibilityNotes = ref('')
 const prizeNotes = ref('')
-/** Vacío = sin tope; solo números enteros válidos si se rellena */
 const maxApprovedParticipantsRaw = ref('')
-/** Cuántos puestos clasificados reciben LC al cerrarse el torneo (0 = no configurar tabla). */
-
 const prizeWinnerSlotsCount = ref(0)
-
 const prizeLeonDraft = ref<string[]>([])
 
 const localError = ref<string | null>(null)
+
+const minRegistrationEnd = computed(() => registrationStartLocal.value)
+const minCompetitionStart = computed(() => registrationEndLocal.value)
+const minCompetitionEnd = computed(() => competitionStartLocal.value)
 
 function resolveBearer(): string | null {
   return coerceBearerToken(auth.token) ?? (typeof localStorage !== 'undefined' ? localStorage.getItem(LEONBON_TOKEN_STORAGE_KEY) : null)
@@ -73,6 +81,18 @@ function toIso(localDatetime: string): string {
   return d.toISOString()
 }
 
+function applyDefaultSchedule() {
+  const start = defaultRegistrationStartLocal()
+  registrationStartLocal.value = start
+  registrationEndLocal.value = addMsToLocal(start, 7 * DAY_MS)
+  competitionStartLocal.value = addMsToLocal(registrationEndLocal.value, DAY_MS)
+  competitionEndLocal.value = addMsToLocal(competitionStartLocal.value, 14 * DAY_MS)
+}
+
+onMounted(() => {
+  applyDefaultSchedule()
+})
+
 async function submit() {
   localError.value = null
   const bearer = resolveBearer()
@@ -107,6 +127,19 @@ async function submit() {
     competitionEndAt = toIso(competitionEndLocal.value)
   } catch {
     localError.value = 'Revisa las fechas (formato inválido).'
+    return
+  }
+
+  const rs = parseDatetimeLocal(registrationStartLocal.value)
+  const re = parseDatetimeLocal(registrationEndLocal.value)
+  const cs = parseDatetimeLocal(competitionStartLocal.value)
+  const ce = parseDatetimeLocal(competitionEndLocal.value)
+  if (!rs || !re || !cs || !ce) {
+    localError.value = 'Revisa las fechas.'
+    return
+  }
+  if (!(rs < re && re < cs && cs < ce)) {
+    localError.value = 'Orden requerido: inicio inscripción < fin inscripción < inicio competencia < fin competencia.'
     return
   }
 
@@ -174,7 +207,7 @@ async function submit() {
       </div>
       <h1 class="mt-4 text-2xl font-semibold tracking-tight text-zinc-100">Crear torneo (admin)</h1>
       <p class="mt-2 text-sm text-zinc-400">
-        Las fechas se convierten a UTC según la zona horaria de tu navegador.
+        Toca cada campo de fecha para abrir el calendario. Las cuatro etapas se configuran por separado.
       </p>
     </div>
 
@@ -187,6 +220,7 @@ async function submit() {
           v-model="name"
           type="text"
           required
+          autofocus
           class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
         />
       </div>
@@ -218,50 +252,38 @@ async function submit() {
         </div>
       </div>
       <p class="text-xs text-zinc-500">
-        <span class="font-mono text-zinc-400">DOUBLE_ELIM</span>: el generador soporta hasta 8 huecos en cuadro de ganadores (potencia de 2).
-        <span class="font-mono text-zinc-400">ROUND_ROBIN</span>: todos contra todos; el torneo se marca finalizado cuando todas las partidas tienen ganador.
+        <span class="font-mono text-zinc-400">DOUBLE_ELIM</span>: hasta 8 en cuadro de ganadores.
+        <span class="font-mono text-zinc-400">ROUND_ROBIN</span>: todos contra todos.
       </p>
 
-      <div class="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label class="block text-xs text-zinc-500">Inicio inscripción</label>
-          <input
-            v-model="registrationStartLocal"
-            type="datetime-local"
-            required
-            class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-        </div>
-        <div>
-          <label class="block text-xs text-zinc-500">Fin inscripción</label>
-          <input
-            v-model="registrationEndLocal"
-            type="datetime-local"
-            required
-            class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-        </div>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-xs font-medium uppercase tracking-wide text-zinc-500">Calendario del torneo</p>
+        <button
+          type="button"
+          class="text-xs text-sky-400 hover:text-sky-300"
+          @click="applyDefaultSchedule()"
+        >
+          Restablecer sugeridas
+        </button>
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label class="block text-xs text-zinc-500">Inicio competencia</label>
-          <input
-            v-model="competitionStartLocal"
-            type="datetime-local"
-            required
-            class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-        </div>
-        <div>
-          <label class="block text-xs text-zinc-500">Fin competencia</label>
-          <input
-            v-model="competitionEndLocal"
-            type="datetime-local"
-            required
-            class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          />
-        </div>
+        <DatetimePickerField v-model="registrationStartLocal" label="Inicio inscripción" />
+        <DatetimePickerField
+          v-model="registrationEndLocal"
+          label="Fin inscripción"
+          :min-local="minRegistrationEnd"
+        />
+        <DatetimePickerField
+          v-model="competitionStartLocal"
+          label="Inicio competencia"
+          :min-local="minCompetitionStart"
+        />
+        <DatetimePickerField
+          v-model="competitionEndLocal"
+          label="Fin competencia"
+          :min-local="minCompetitionEnd"
+        />
       </div>
 
       <div>
@@ -273,7 +295,6 @@ async function submit() {
           class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
         />
       </div>
-
       <div>
         <label class="block text-xs text-zinc-500">Reglas (texto, opcional)</label>
         <textarea
@@ -284,12 +305,11 @@ async function submit() {
         />
       </div>
       <div>
-        <label class="block text-xs text-zinc-500">Elegibilidad / requisitos (referencia, opcional)</label>
+        <label class="block text-xs text-zinc-500">Elegibilidad / requisitos (opcional)</label>
         <textarea
           v-model="eligibilityNotes"
           rows="2"
           class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          placeholder="Rangos, región, antecedentes… (la verificación es manual por admin)"
         />
       </div>
       <div>
@@ -298,19 +318,13 @@ async function submit() {
           v-model="prizeNotes"
           rows="2"
           class="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-          placeholder="Notas sobre trofeos, sponsors, otros premios físicos…"
         />
       </div>
 
       <div class="rounded-lg border border-amber-900/30 bg-amber-950/10 p-4">
-        <label class="block text-xs font-medium text-amber-200/95">Distribución L-Coins por posición</label>
-        <p class="mt-1 text-[11px] text-zinc-500">
-          Al cerrarse el torneo se acreditan L-Coins por colocaciones 1.er, 2.º … según estos importes. En equipo, el pool
-          de cada puesto se divide en partes iguales entre el roster de esa entrada. Configurá solo tantos puestos como el
-          formato vaya a emitir (ej. liga solo garantiza hasta 2 puestos con el esquema actual).
-        </p>
+        <label class="block text-xs font-medium text-amber-200/95">L-Coins por posición</label>
         <div class="mt-3 max-w-xs">
-          <label class="block text-xs text-zinc-500">¿Cuántos puestos con premio?</label>
+          <label class="block text-xs text-zinc-500">Puestos con premio</label>
           <input
             v-model.number="prizeWinnerSlotsCount"
             type="number"
@@ -338,7 +352,7 @@ async function submit() {
       </div>
 
       <div>
-        <label class="block text-xs text-zinc-500">Cupo máx. entradas aprobadas (opcional)</label>
+        <label class="block text-xs text-zinc-500">Cupo máx. entradas (opcional)</label>
         <input
           v-model="maxApprovedParticipantsRaw"
           type="text"
@@ -347,10 +361,6 @@ async function submit() {
           class="mt-1 w-full max-w-xs rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
         />
       </div>
-
-      <p class="text-xs text-zinc-500">
-        El backend exige: inicio inscripción &lt; fin inscripción &lt; inicio competencia &lt; fin competencia.
-      </p>
 
       <button
         type="submit"

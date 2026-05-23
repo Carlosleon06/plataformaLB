@@ -1,6 +1,6 @@
 # Proyecto base de datos: BON e-sports
 
-La base de datos es **MongoDB**. El diseño original contemplaba 6 módulos conceptuales; al construir el sistema esos módulos se tradujeron en **13 colecciones** para separar responsabilidades y mantener las consultas simples.
+La base de datos es **MongoDB**. El diseño original contemplaba 6 módulos conceptuales; al construir el sistema esos módulos se tradujeron en **12 colecciones** para separar responsabilidades y mantener las consultas simples.
 
 ---
 
@@ -192,33 +192,3 @@ Contador incremental para IDs legibles. Solo tiene un documento activo:
 
 - `_id` = `"user_leon_player_number"`
 - `latest` — Último número asignado. Se incrementa con cada nuevo registro.
-
----
-
-## Relaciones entre colecciones
-
-```
-users ──────────────────────── teams (captainUserId, memberUserIds, coachUserIds)
-users ──────────────────────── team_join_requests (requesterUserId)
-users ──────────────────────── bets (userId)
-users ──────────────────────── transactions (userId)
-users ──────────────────────── user_notifications (userId)
-users ──────────────────────── trophy_awards (creditedMemberUserIds, playerId)
-
-teams ──────────────────────── tournament_entries (teamId)
-teams ──────────────────────── team_join_requests (teamId)
-teams ──────────────────────── trophy_awards (teamId)
-
-tournaments ────────────────── tournament_entries (tournamentId)
-tournaments ────────────────── bracket_matches (tournamentId)
-tournaments ────────────────── trophy_awards (tournamentId)
-
-tournament_entries ─────────── bracket_matches (entryIdA, entryIdB, winnerEntryId)
-tournament_entries ─────────── bets (pickedEntryId)
-tournament_entries ─────────── trophy_awards (tournamentEntryId)
-
-bracket_matches ────────────── bracket_match_stats (matchId)
-bracket_matches ────────────── bets (matchId)
-```
-
-> En MongoDB no hay foreign keys. Todas estas relaciones son **referencias por ID** que el backend resuelve en tiempo de ejecución.
